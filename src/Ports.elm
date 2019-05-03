@@ -1,14 +1,18 @@
-port module Ports exposing (backward, begin, end, forward, open, playPause)
+port module Ports exposing (backward, begin, end, forward, load, playPause)
 
-import Json.Encode exposing (Value, object, string)
+import Json.Encode exposing (Value, bool, object, string)
 
 
 port toJs : Value -> Cmd msg
 
 
-open : String -> Cmd msg
-open file =
-    toJs <| object [ ( "command", string "open" ), ( "file", string file ) ]
+load : String -> Cmd msg
+load song =
+    toJs <|
+        object
+            [ ( "command", string "load" )
+            , ( "song", string song )
+            ]
 
 
 begin : Cmd msg
@@ -21,9 +25,13 @@ backward =
     toJs <| object [ ( "command", string "backward" ) ]
 
 
-playPause : Cmd msg
-playPause =
-    toJs <| object [ ( "command", string "playPause" ) ]
+playPause : Bool -> Cmd msg
+playPause isPlaying =
+    toJs <|
+        object
+            [ ( "command", string "playPause" )
+            , ( "isPlaying", bool isPlaying )
+            ]
 
 
 forward : Cmd msg

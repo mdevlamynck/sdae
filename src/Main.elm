@@ -11,6 +11,7 @@ import File.Select as Select
 import Html exposing (Html, progress)
 import Html.Attributes exposing (attribute)
 import Ports
+import Task
 
 
 main : Program Flags Model Msg
@@ -61,10 +62,14 @@ type alias Input =
     {}
 
 
-type Msg
+type
+    Msg
+    -- Player
     = MsgPlayPause
+      -- Song
     | MsgSelectSong
     | MsgSongSelected File
+    | MsgSongLoaded String
 
 
 
@@ -89,7 +94,7 @@ update msg model =
     case msg of
         MsgPlayPause ->
             ( { model | isPlaying = not model.isPlaying }
-            , Ports.playPause
+            , Ports.playPause (not model.isPlaying)
             )
 
         MsgSelectSong ->
@@ -98,8 +103,13 @@ update msg model =
             )
 
         MsgSongSelected file ->
-            ( { model | isPlaying = not model.isPlaying, song = Just { file = file } }
-            , Ports.open (File.name file)
+            ( { model | song = Just { file = file } }
+            , Task.perform MsgSongLoaded (File.toUrl file)
+            )
+
+        MsgSongLoaded songBase64 ->
+            ( model
+            , Ports.load songBase64
             )
 
 

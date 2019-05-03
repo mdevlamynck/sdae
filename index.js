@@ -12,8 +12,8 @@ app.ports.toJs.subscribe(function (json) {
 	console.log(json);
 
 	switch (json.command) {
-		case 'open':
-			song = new Howl({src: './' + json.file});
+		case 'load':
+			song = new Howl({src: [json.song]});
 			song.play();
 			break;
 		case 'begin':
@@ -22,7 +22,11 @@ app.ports.toJs.subscribe(function (json) {
 			break;
 		case 'playPause':
 			if (song !== null) {
-				song.play();
+				if (json.isPlaying) {
+					song.pause();
+				} else {
+					song.play();
+				}
 			}
 			break;
 		case 'forward':
