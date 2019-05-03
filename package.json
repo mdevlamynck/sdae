@@ -1,7 +1,7 @@
 {
   "scripts": {
-	  "serve": "parcel serve index.html",
-	  "test": "elm-test"
+    "serve": "parcel serve index.html",
+    "test": "elm-test"
   },
   "devDependencies": {
     "elm-hot": "^1.0.1",
