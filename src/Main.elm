@@ -5,6 +5,8 @@ import Element exposing (..)
 import Element.Background as Background
 import Element.Font as Font
 import Element.Input exposing (button)
+import Element.Utils exposing (elWhenJust)
+import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Select as Select
 import Html exposing (Html, progress)
@@ -37,6 +39,9 @@ type alias Model =
     , pos : Float
     , duration : Float
 
+    -- Editor
+    , currentInput : Maybe Input
+
     -- Song
     , song : Maybe Song
 
@@ -59,7 +64,17 @@ type alias Game =
 
 
 type alias Input =
-    {}
+    { hits : EverySet Hit
+    }
+
+
+type Hit
+    = LeftUp
+    | LeftMiddle
+    | LeftDown
+    | RightUp
+    | RightMiddle
+    | RightDown
 
 
 type Msg
@@ -74,6 +89,9 @@ type Msg
     | MsgPlayPause
     | MsgForward
     | MsgEnd
+      -- Editor
+    | MsgAddHit Hit
+    | MsgRemoveHit Hit
       -- Song
     | MsgSelectSong
     | MsgSongSelected File
@@ -86,10 +104,14 @@ type Msg
 
 init : Flags -> ( Model, Cmd Msg )
 init _ =
-    ( { inputs = [ {}, {} ]
+    ( { inputs = []
       , isPlaying = False
       , pos = 0
       , duration = 0
+      , currentInput =
+            Just
+                { hits = EverySet.fromList [ LeftUp, RightDown ]
+                }
       , song = Nothing
       , game = Nothing
       }
@@ -145,6 +167,16 @@ update msg model =
             , Ports.end
             )
 
+        MsgAddHit hit ->
+            ( model |> (mapCurrentInput << mapInputHits <| EverySet.insert hit)
+            , Cmd.none
+            )
+
+        MsgRemoveHit hit ->
+            ( model |> (mapCurrentInput << mapInputHits <| EverySet.remove hit)
+            , Cmd.none
+            )
+
         MsgSelectSong ->
             ( model
             , Select.file [] MsgSongSelected
@@ -169,6 +201,16 @@ subscriptions model =
         , duration = MsgDuration
         , pos = MsgPos
         }
+
+
+mapCurrentInput : (Input -> Input) -> Model -> Model
+mapCurrentInput function model =
+    { model | currentInput = model.currentInput |> Maybe.map function }
+
+
+mapInputHits : (EverySet Hit -> EverySet Hit) -> Input -> Input
+mapInputHits function input =
+    { input | hits = function input.hits }
 
 
 
@@ -293,8 +335,37 @@ progressBarView model =
 
 editorView : Model -> Element Msg
 editorView model =
-    el [ width fill, height fill ] <|
-        text "editor view"
+    let
+        label hit input =
+            button [ width fill, height fill, centerX, centerY, Font.center ] <|
+                if EverySet.member hit input.hits then
+                    { onPress = Just (MsgRemoveHit hit)
+                    , label = text "X"
+                    }
+
+                else
+                    { onPress = Just (MsgAddHit hit)
+                    , label = text "o"
+                    }
+    in
+    el [ width (fill |> maximum 800), height (fill |> maximum 800) ] <|
+        elWhenJust model.currentInput <|
+            \input ->
+                column [ width fill, height fill, centerX, centerY, Font.center ]
+                    [ row [ width fill, height fill, centerX, centerY, Font.center ]
+                        [ label LeftUp input
+                        , label RightUp input
+                        ]
+                    , row [ width fill, height fill, centerX, centerY, Font.center ]
+                        [ label LeftMiddle input
+                        , el [ width fill ] none
+                        , label RightMiddle input
+                        ]
+                    , row [ width fill, height fill, centerX, centerY, Font.center ]
+                        [ label LeftDown input
+                        , label RightDown input
+                        ]
+                    ]
 
 
 propertiesView : Model -> Element Msg

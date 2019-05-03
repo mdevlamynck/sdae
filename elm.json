@@ -6,6 +6,7 @@
     "elm-version": "0.19.0",
     "dependencies": {
         "direct": {
+            "Gizra/elm-all-set": "1.0.1",
             "NoRedInk/elm-json-decode-pipeline": "1.0.0",
             "elm/browser": "1.0.1",
             "elm/bytes": "1.0.8",
@@ -18,7 +19,8 @@
         "indirect": {
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
-            "elm/virtual-dom": "1.0.2"
+            "elm/virtual-dom": "1.0.2",
+            "pzp1997/assoc-list": "1.0.0"
         }
     },
     "test-dependencies": {
