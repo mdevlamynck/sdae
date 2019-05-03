@@ -1,8 +1,8 @@
-port module Ports exposing (backward, begin, end, forward, load, playPause, subscriptions)
+port module Ports exposing (backward, begin, end, forward, load, playPause, seek, subscriptions)
 
 import Json.Decode as D exposing (Decoder, andThen, decodeValue, fail, field)
 import Json.Decode.Pipeline exposing (required)
-import Json.Encode as E exposing (Value, bool, object, string)
+import Json.Encode as E exposing (Value, bool, float, object, string)
 
 
 port toJs : Value -> Cmd msg
@@ -40,6 +40,15 @@ forward =
 end : Cmd msg
 end =
     toJs <| object [ ( "command", string "end" ) ]
+
+
+seek : Float -> Cmd msg
+seek pos =
+    toJs <|
+        object
+            [ ( "command", string "seek" )
+            , ( "pos", float pos )
+            ]
 
 
 port toElm : (Value -> msg) -> Sub msg

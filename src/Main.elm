@@ -1,16 +1,17 @@
 module Main exposing (main)
 
 import Browser
+import Bytes exposing (Bytes)
 import Element exposing (..)
 import Element.Background as Background
+import Element.Border as Border
 import Element.Font as Font
-import Element.Input exposing (button)
+import Element.Input exposing (button, labelHidden, slider, thumb)
 import Element.Utils exposing (elWhenJust)
 import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Select as Select
-import Html exposing (Html, progress)
-import Html.Attributes exposing (attribute)
+import Html exposing (Html)
 import Ports
 import Task
 
@@ -23,6 +24,15 @@ main =
         , subscriptions = subscriptions
         , view = view
         }
+
+
+
+-- Styles
+
+
+buttonColor : Color
+buttonColor =
+    rgb255 59 136 195
 
 
 
@@ -46,7 +56,7 @@ type alias Model =
     , song : Maybe Song
 
     -- Game File
-    , game : Maybe Game
+    , game : Game
 
     -- Inputs
     , inputs : List Input
@@ -89,6 +99,7 @@ type Msg
     | MsgPlayPause
     | MsgForward
     | MsgEnd
+    | MsgSeek Float
       -- Editor
     | MsgAddHit Hit
     | MsgRemoveHit Hit
@@ -96,6 +107,10 @@ type Msg
     | MsgSelectSong
     | MsgSongSelected File
     | MsgSongLoaded String
+      -- Song
+    | MsgSelectGame
+    | MsgGameSelected File
+    | MsgGameLoaded Bytes
 
 
 
@@ -113,7 +128,7 @@ init _ =
                 { hits = EverySet.fromList [ LeftUp, RightDown ]
                 }
       , song = Nothing
-      , game = Nothing
+      , game = {}
       }
     , Cmd.none
     )
@@ -167,6 +182,11 @@ update msg model =
             , Ports.end
             )
 
+        MsgSeek pos ->
+            ( model
+            , Ports.seek pos
+            )
+
         MsgAddHit hit ->
             ( model |> (mapCurrentInput << mapInputHits <| EverySet.insert hit)
             , Cmd.none
@@ -190,6 +210,21 @@ update msg model =
         MsgSongLoaded songBase64 ->
             ( model
             , Ports.load songBase64
+            )
+
+        MsgSelectGame ->
+            ( model
+            , Select.file [] MsgGameSelected
+            )
+
+        MsgGameSelected file ->
+            ( model
+            , Task.perform MsgGameLoaded (File.toBytes file)
+            )
+
+        MsgGameLoaded bytes ->
+            ( model
+            , Cmd.none
             )
 
 
@@ -253,7 +288,7 @@ mainView model =
 
 inputListView : Model -> Element Msg
 inputListView model =
-    column [ height fill, width (shrink |> minimum 300), centerX ] <|
+    column [ height fill, width (shrink |> minimum 200), centerX ] <|
         List.map inputRowView model.inputs
 
 
@@ -264,8 +299,8 @@ inputRowView model =
 
 playerView : Model -> Element Msg
 playerView model =
-    column [ width fill, spacing 5 ]
-        [ row [ centerX, spacing 5, Font.size 30 ]
+    column [ width fill, spacing 20, paddingXY 0 20 ]
+        [ row [ centerX, spacing 20, Font.size 30 ]
             [ beginBtn
             , backwardBtn
             , playPauseBtn model.isPlaying
@@ -325,45 +360,73 @@ endBtn =
 progressBarView : Model -> Element Msg
 progressBarView model =
     el [ width fill ] <|
-        html <|
-            progress
-                [ attribute "value" (String.fromFloat model.pos)
-                , attribute "max" (String.fromFloat model.duration)
-                ]
-                []
+        slider [ Background.color buttonColor, Border.rounded 8 ]
+            { onChange = MsgSeek
+            , label = labelHidden "progress"
+            , min = 0
+            , max = model.duration
+            , value = model.pos
+            , thumb =
+                thumb
+                    [ Element.width (Element.px 20)
+                    , Element.height (Element.px 20)
+                    , Border.rounded 10
+                    , Background.color (Element.rgb 1 1 1)
+                    ]
+            , step = Nothing
+            }
 
 
 editorView : Model -> Element Msg
 editorView model =
     let
         label hit input =
-            button [ width fill, height fill, centerX, centerY, Font.center ] <|
-                if EverySet.member hit input.hits then
+            if EverySet.member hit input.hits then
+                button
+                    [ width (fillPortion 2)
+                    , height (fillPortion 2)
+                    , centerX
+                    , centerY
+                    , Font.center
+                    , Background.color <| rgb 0.5 0.5 0.5
+                    ]
                     { onPress = Just (MsgRemoveHit hit)
-                    , label = text "X"
+                    , label = none
                     }
 
-                else
+            else
+                button
+                    [ width (fillPortion 2)
+                    , height (fillPortion 2)
+                    , centerX
+                    , centerY
+                    , Font.center
+                    , Background.color <| rgb 0.2 0.2 0.2
+                    ]
                     { onPress = Just (MsgAddHit hit)
-                    , label = text "o"
+                    , label = none
                     }
     in
-    el [ width (fill |> maximum 800), height (fill |> maximum 800) ] <|
+    el [ width (fill |> maximum 400), height (fill |> maximum 400), centerX, centerY ] <|
         elWhenJust model.currentInput <|
             \input ->
                 column [ width fill, height fill, centerX, centerY, Font.center ]
                     [ row [ width fill, height fill, centerX, centerY, Font.center ]
-                        [ label LeftUp input
+                        [ el [ width (fillPortion 1) ] none
+                        , label LeftUp input
                         , label RightUp input
+                        , el [ width (fillPortion 1) ] none
                         ]
                     , row [ width fill, height fill, centerX, centerY, Font.center ]
                         [ label LeftMiddle input
-                        , el [ width fill ] none
+                        , el [ width (fillPortion 2) ] none
                         , label RightMiddle input
                         ]
                     , row [ width fill, height fill, centerX, centerY, Font.center ]
-                        [ label LeftDown input
+                        [ el [ width (fillPortion 1) ] none
+                        , label LeftDown input
                         , label RightDown input
+                        , el [ width (fillPortion 1) ] none
                         ]
                     ]
 
@@ -377,33 +440,29 @@ propertiesView model =
 
             Just song ->
                 songPropertiesView song
-        , case model.game of
-            Nothing ->
-                openGameView
-
-            Just game ->
-                gamePropertiesView game
+        , gamePropertiesView model.game
         ]
 
 
 openSongView : Element Msg
 openSongView =
-    button [ centerX, paddingXY 0 30 ]
-        { onPress = Just MsgSelectSong
-        , label = text "Select Song"
-        }
-
-
-openGameView : Element Msg
-openGameView =
-    none
+    el [ paddingXY 0 30, centerX ] <|
+        button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+            { onPress = Just MsgSelectSong
+            , label = text "Select Song"
+            }
 
 
 songPropertiesView : Song -> Element Msg
 songPropertiesView song =
-    text song.name
+    el [ paddingXY 0 30, centerX ] <|
+        text song.name
 
 
 gamePropertiesView : Game -> Element Msg
 gamePropertiesView game =
-    none
+    el [ paddingXY 0 30, centerX ] <|
+        button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+            { onPress = Just MsgSelectGame
+            , label = text "Select Game file"
+            }

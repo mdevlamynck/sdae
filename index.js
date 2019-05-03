@@ -33,6 +33,9 @@ app.ports.toJs.subscribe(function (json) {
         case 'end':
             end();
             break;
+        case 'seek':
+            seek(json);
+            break;
     }
 });
 
@@ -59,6 +62,9 @@ function load(json) {
             isPlaying = false;
             toElm('isPlaying');
         },
+        onseek: function() {
+            toElm('pos');
+        }
     });
 
     playPause();
@@ -90,6 +96,10 @@ function forward() {
 
 function end() {
     song.stop();
+}
+
+function seek(json) {
+    song.seek(json.pos);
 }
 
 function sendPos() {
