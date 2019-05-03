@@ -3,7 +3,6 @@ module Main exposing (main)
 import Browser
 import Element exposing (..)
 import Element.Background as Background
-import Element.Events exposing (..)
 import Element.Font as Font
 import Element.Input exposing (button)
 import File exposing (File)
@@ -36,7 +35,7 @@ type alias Model =
     { -- Player
       isPlaying : Bool
     , pos : Float
-    , length : Float
+    , duration : Float
 
     -- Song
     , song : Maybe Song
@@ -51,6 +50,7 @@ type alias Model =
 
 type alias Song =
     { file : File
+    , name : String
     }
 
 
@@ -62,10 +62,18 @@ type alias Input =
     {}
 
 
-type
-    Msg
-    -- Player
-    = MsgPlayPause
+type Msg
+    = MsgNoOp
+      -- Commands
+    | MsgIsPlaying Bool
+    | MsgDuration Float
+    | MsgPos Float
+      -- Player
+    | MsgBegin
+    | MsgBackward
+    | MsgPlayPause
+    | MsgForward
+    | MsgEnd
       -- Song
     | MsgSelectSong
     | MsgSongSelected File
@@ -80,8 +88,8 @@ init : Flags -> ( Model, Cmd Msg )
 init _ =
     ( { inputs = [ {}, {} ]
       , isPlaying = False
-      , pos = 50
-      , length = 100
+      , pos = 0
+      , duration = 0
       , song = Nothing
       , game = Nothing
       }
@@ -92,18 +100,58 @@ init _ =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        MsgNoOp ->
+            ( model
+            , Cmd.none
+            )
+
+        MsgIsPlaying isPlaying ->
+            ( { model | isPlaying = isPlaying }
+            , Cmd.none
+            )
+
+        MsgDuration duration ->
+            ( { model | duration = duration }
+            , Cmd.none
+            )
+
+        MsgPos pos ->
+            ( { model | pos = pos }
+            , Cmd.none
+            )
+
+        MsgBegin ->
+            ( model
+            , Ports.begin
+            )
+
+        MsgBackward ->
+            ( model
+            , Ports.backward
+            )
+
         MsgPlayPause ->
-            ( { model | isPlaying = not model.isPlaying }
-            , Ports.playPause (not model.isPlaying)
+            ( model
+            , Ports.playPause
+            )
+
+        MsgForward ->
+            ( model
+            , Ports.forward
+            )
+
+        MsgEnd ->
+            ( model
+            , Ports.end
             )
 
         MsgSelectSong ->
             ( model
-            , Select.file [ "audio/basic" ] MsgSongSelected
+            , Select.file [] MsgSongSelected
             )
 
         MsgSongSelected file ->
-            ( { model | song = Just { file = file } }
+            ( { model | song = Just { file = file, name = File.name file } }
             , Task.perform MsgSongLoaded (File.toUrl file)
             )
 
@@ -115,7 +163,12 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Ports.subscriptions
+        { invalidCommand = MsgNoOp
+        , isPlaying = MsgIsPlaying
+        , duration = MsgDuration
+        , pos = MsgPos
+        }
 
 
 
@@ -124,7 +177,15 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    layout
+    layoutWith
+        { options =
+            [ focusStyle
+                { borderColor = Nothing
+                , backgroundColor = Nothing
+                , shadow = Nothing
+                }
+            ]
+        }
         [ Background.color (rgb 0.1 0.1 0.1)
         , Font.family [ Font.monospace ]
         , Font.size 14
@@ -175,37 +236,48 @@ playerView model =
 
 beginBtn : Element Msg
 beginBtn =
-    el [] <|
-        text "⏮"
+    button []
+        { onPress = Just MsgBegin
+        , label = text "⏮"
+        }
 
 
 backwardBtn : Element Msg
 backwardBtn =
-    el [] <|
-        text "⏪"
+    button []
+        { onPress = Just MsgBackward
+        , label = text "⏪"
+        }
 
 
 playPauseBtn : Bool -> Element Msg
 playPauseBtn isPlaying =
-    el [ onClick MsgPlayPause ] <|
-        text <|
-            if isPlaying then
-                "⏸"
+    button []
+        { onPress = Just MsgPlayPause
+        , label =
+            text <|
+                if isPlaying then
+                    "⏸"
 
-            else
-                "⏯"
+                else
+                    "⏯"
+        }
 
 
 forwardBtn : Element Msg
 forwardBtn =
-    el [] <|
-        text "⏩"
+    button []
+        { onPress = Just MsgForward
+        , label = text "⏩"
+        }
 
 
 endBtn : Element Msg
 endBtn =
-    el [] <|
-        text "⏭"
+    button []
+        { onPress = Just MsgEnd
+        , label = text "⏭"
+        }
 
 
 progressBarView : Model -> Element Msg
@@ -214,7 +286,7 @@ progressBarView model =
         html <|
             progress
                 [ attribute "value" (String.fromFloat model.pos)
-                , attribute "max" (String.fromFloat model.length)
+                , attribute "max" (String.fromFloat model.duration)
                 ]
                 []
 
@@ -245,7 +317,7 @@ propertiesView model =
 
 openSongView : Element Msg
 openSongView =
-    button []
+    button [ centerX, paddingXY 0 30 ]
         { onPress = Just MsgSelectSong
         , label = text "Select Song"
         }
@@ -258,7 +330,7 @@ openGameView =
 
 songPropertiesView : Song -> Element Msg
 songPropertiesView song =
-    none
+    text song.name
 
 
 gamePropertiesView : Game -> Element Msg
