@@ -1,6 +1,5 @@
 import {Howl, Howler} from 'howler';
 import {Elm} from './src/Main.elm';
-import {timeout} from "q";
 
 const app = Elm.Main.init({
     node:  document.getElementById('app'),
@@ -71,10 +70,18 @@ function load(json) {
 }
 
 function begin() {
+    if (song === null) {
+        return;
+    }
+
     song.stop();
 }
 
 function backward() {
+    if (song === null) {
+        return;
+    }
+
     song.seek(song.seek() - 1);
 }
 
@@ -91,14 +98,26 @@ function playPause() {
 }
 
 function forward() {
+    if (song === null) {
+        return;
+    }
+
     song.seek(song.seek() + 1);
 }
 
 function end() {
+    if (song === null) {
+        return;
+    }
+
     song.stop();
 }
 
 function seek(json) {
+    if (song === null) {
+        return;
+    }
+
     song.seek(json.pos);
 }
 
@@ -121,6 +140,10 @@ function toElm(command) {
             payload.duration = song.duration();
             break;
         case 'pos':
+            if (song === null) {
+                return;
+            }
+
             payload.pos = song.seek();
             break;
     }

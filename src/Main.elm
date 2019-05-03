@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Bytes exposing (Bytes)
+import Data exposing (Game, Hit(..), Input, Song)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -12,6 +13,7 @@ import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Select as Select
 import Html exposing (Html)
+import Keyboard
 import Ports
 import Task
 
@@ -63,30 +65,6 @@ type alias Model =
     }
 
 
-type alias Song =
-    { file : File
-    , name : String
-    }
-
-
-type alias Game =
-    {}
-
-
-type alias Input =
-    { hits : EverySet Hit
-    }
-
-
-type Hit
-    = LeftUp
-    | LeftMiddle
-    | LeftDown
-    | RightUp
-    | RightMiddle
-    | RightDown
-
-
 type Msg
     = MsgNoOp
       -- Commands
@@ -103,6 +81,7 @@ type Msg
       -- Editor
     | MsgAddHit Hit
     | MsgRemoveHit Hit
+    | MsgToggleHit Hit
       -- Song
     | MsgSelectSong
     | MsgSongSelected File
@@ -188,12 +167,29 @@ update msg model =
             )
 
         MsgAddHit hit ->
-            ( model |> (mapCurrentInput << mapInputHits <| EverySet.insert hit)
+            ( model
+                |> (mapCurrentInput << mapInputHits)
+                    (EverySet.insert hit)
             , Cmd.none
             )
 
         MsgRemoveHit hit ->
-            ( model |> (mapCurrentInput << mapInputHits <| EverySet.remove hit)
+            ( model
+                |> (mapCurrentInput << mapInputHits)
+                    (EverySet.remove hit)
+            , Cmd.none
+            )
+
+        MsgToggleHit hit ->
+            ( model
+                |> (mapCurrentInput << mapInputHits)
+                    (\hits ->
+                        if EverySet.member hit hits then
+                            EverySet.remove hit hits
+
+                        else
+                            EverySet.insert hit hits
+                    )
             , Cmd.none
             )
 
@@ -230,12 +226,18 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Ports.subscriptions
-        { invalidCommand = MsgNoOp
-        , isPlaying = MsgIsPlaying
-        , duration = MsgDuration
-        , pos = MsgPos
-        }
+    Sub.batch
+        [ Ports.subscriptions
+            { invalidCommand = MsgNoOp
+            , isPlaying = MsgIsPlaying
+            , duration = MsgDuration
+            , pos = MsgPos
+            }
+        , Keyboard.subscriptions
+            { playPause = MsgPlayPause
+            , toggleHit = MsgToggleHit
+            }
+        ]
 
 
 mapCurrentInput : (Input -> Input) -> Model -> Model
@@ -387,7 +389,6 @@ editorView model =
                     , height (fillPortion 2)
                     , centerX
                     , centerY
-                    , Font.center
                     , Background.color <| rgb 0.5 0.5 0.5
                     ]
                     { onPress = Just (MsgRemoveHit hit)
@@ -400,7 +401,6 @@ editorView model =
                     , height (fillPortion 2)
                     , centerX
                     , centerY
-                    , Font.center
                     , Background.color <| rgb 0.2 0.2 0.2
                     ]
                     { onPress = Just (MsgAddHit hit)
@@ -410,19 +410,19 @@ editorView model =
     el [ width (fill |> maximum 400), height (fill |> maximum 400), centerX, centerY ] <|
         elWhenJust model.currentInput <|
             \input ->
-                column [ width fill, height fill, centerX, centerY, Font.center ]
-                    [ row [ width fill, height fill, centerX, centerY, Font.center ]
+                column [ width fill, height fill, centerX, centerY ]
+                    [ row [ width fill, height fill, centerX, centerY ]
                         [ el [ width (fillPortion 1) ] none
                         , label LeftUp input
                         , label RightUp input
                         , el [ width (fillPortion 1) ] none
                         ]
-                    , row [ width fill, height fill, centerX, centerY, Font.center ]
+                    , row [ width fill, height fill, centerX, centerY ]
                         [ label LeftMiddle input
                         , el [ width (fillPortion 2) ] none
                         , label RightMiddle input
                         ]
-                    , row [ width fill, height fill, centerX, centerY, Font.center ]
+                    , row [ width fill, height fill, centerX, centerY ]
                         [ el [ width (fillPortion 1) ] none
                         , label LeftDown input
                         , label RightDown input
