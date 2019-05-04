@@ -7,6 +7,7 @@ import File exposing (File)
 type alias Song =
     { file : File
     , name : String
+    , loading : Bool
     }
 
 

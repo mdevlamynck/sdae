@@ -127,7 +127,10 @@ update msg model =
             )
 
         MsgDuration duration ->
-            ( { model | duration = duration }
+            ( { model
+                | duration = duration
+                , song = model.song |> Maybe.map (\song -> { song | loading = False })
+              }
             , Cmd.none
             )
 
@@ -199,7 +202,7 @@ update msg model =
             )
 
         MsgSongSelected file ->
-            ( { model | song = Just { file = file, name = File.name file } }
+            ( { model | song = Just { file = file, name = File.name file, loading = True } }
             , Task.perform MsgSongLoaded (File.toUrl file)
             )
 
@@ -235,7 +238,13 @@ subscriptions model =
             }
         , Keyboard.subscriptions
             { playPause = MsgPlayPause
+            , backward = MsgBackward
+            , forward = MsgForward
             , toggleHit = MsgToggleHit
+            , previousHit = MsgNoOp
+            , nextHit = MsgNoOp
+            , openSong = MsgSelectSong
+            , openGame = MsgSelectGame
             }
         ]
 
@@ -449,14 +458,18 @@ openSongView =
     el [ paddingXY 0 30, centerX ] <|
         button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
             { onPress = Just MsgSelectSong
-            , label = text "Select Song"
+            , label = text "o: Select Song"
             }
 
 
 songPropertiesView : Song -> Element Msg
 songPropertiesView song =
     el [ paddingXY 0 30, centerX ] <|
-        text song.name
+        if song.loading then
+            text "Loading"
+
+        else
+            text song.name
 
 
 gamePropertiesView : Game -> Element Msg
@@ -464,5 +477,5 @@ gamePropertiesView game =
     el [ paddingXY 0 30, centerX ] <|
         button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
             { onPress = Just MsgSelectGame
-            , label = text "Select Game file"
+            , label = text "g: Select Game file"
             }

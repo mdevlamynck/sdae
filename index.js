@@ -39,10 +39,13 @@ app.ports.toJs.subscribe(function (json) {
 });
 
 function load(json) {
-    song = new Howl({
+    var loading = new Howl({
         src: [json.song],
         onload: function(){
+            song = loading;
             toElm('duration');
+
+            playPause();
         },
         onplay: function() {
             isPlaying = true;
@@ -65,8 +68,6 @@ function load(json) {
             toElm('pos');
         }
     });
-
-    playPause();
 }
 
 function begin() {
