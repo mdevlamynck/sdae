@@ -1,8 +1,9 @@
 module Main exposing (main)
 
+import AMG
 import Browser
 import Bytes exposing (Bytes)
-import Data exposing (Game, Hit(..), Input, Song)
+import Data exposing (FileResource(..), Game, Hit(..), Input, Song)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -11,6 +12,7 @@ import Element.Input exposing (button, labelHidden, slider, thumb)
 import Element.Utils exposing (elWhenJust)
 import EverySet exposing (EverySet)
 import File exposing (File)
+import File.Download as Download
 import File.Select as Select
 import Html exposing (Html)
 import Keyboard
@@ -55,10 +57,10 @@ type alias Model =
     , currentInput : Maybe Input
 
     -- Song
-    , song : Maybe Song
+    , song : FileResource Song
 
     -- Game File
-    , game : Game
+    , game : FileResource Game
 
     -- Inputs
     , inputs : List Input
@@ -69,7 +71,7 @@ type Msg
     = MsgNoOp
       -- Commands
     | MsgIsPlaying Bool
-    | MsgDuration Float
+    | MsgSongLoaded Float
     | MsgPos Float
       -- Player
     | MsgBegin
@@ -84,10 +86,14 @@ type Msg
     | MsgToggleHit Hit
       -- Song
     | MsgSelectSong
+    | MsgUnloadSong
     | MsgSongSelected File
-    | MsgSongLoaded String
+    | MsgSongContent String
       -- Song
+    | MsgNewGame
     | MsgSelectGame
+    | MsgUnloadGame
+    | MsgExportGame
     | MsgGameSelected File
     | MsgGameLoaded Bytes
 
@@ -106,8 +112,8 @@ init _ =
             Just
                 { hits = EverySet.fromList [ LeftUp, RightDown ]
                 }
-      , song = Nothing
-      , game = {}
+      , song = None
+      , game = None
       }
     , Cmd.none
     )
@@ -126,10 +132,16 @@ update msg model =
             , Cmd.none
             )
 
-        MsgDuration duration ->
+        MsgSongLoaded duration ->
             ( { model
                 | duration = duration
-                , song = model.song |> Maybe.map (\song -> { song | loading = False })
+                , song =
+                    case model.song of
+                        Loading file ->
+                            Loaded file
+
+                        resource ->
+                            resource
               }
             , Cmd.none
             )
@@ -201,14 +213,24 @@ update msg model =
             , Select.file [] MsgSongSelected
             )
 
-        MsgSongSelected file ->
-            ( { model | song = Just { file = file, name = File.name file, loading = True } }
-            , Task.perform MsgSongLoaded (File.toUrl file)
+        MsgUnloadSong ->
+            ( { model | song = None }
+            , Ports.unload
             )
 
-        MsgSongLoaded songBase64 ->
+        MsgSongSelected file ->
+            ( { model | song = Loading { file = file } }
+            , Task.perform MsgSongContent (File.toUrl file)
+            )
+
+        MsgSongContent songBase64 ->
             ( model
             , Ports.load songBase64
+            )
+
+        MsgNewGame ->
+            ( { model | game = Loaded {} }
+            , Cmd.none
             )
 
         MsgSelectGame ->
@@ -216,24 +238,65 @@ update msg model =
             , Select.file [] MsgGameSelected
             )
 
+        MsgUnloadGame ->
+            ( { model | game = None }
+            , Cmd.none
+            )
+
+        MsgExportGame ->
+            case model.game of
+                Loaded game ->
+                    ( model
+                    , Download.bytes "song.AMG" "application/octet-stream" (AMG.encode game)
+                    )
+
+                _ ->
+                    ( model
+                    , Cmd.none
+                    )
+
         MsgGameSelected file ->
             ( model
             , Task.perform MsgGameLoaded (File.toBytes file)
             )
 
         MsgGameLoaded bytes ->
-            ( model
-            , Cmd.none
-            )
+            case AMG.decode bytes of
+                Just game ->
+                    ( { model | game = Loaded game }
+                    , Cmd.none
+                    )
+
+                Nothing ->
+                    ( { model | game = FailedToLoad }
+                    , Cmd.none
+                    )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
+    let
+        openSong =
+            case model.song of
+                None ->
+                    MsgSelectSong
+
+                _ ->
+                    MsgUnloadSong
+
+        openGame =
+            case model.game of
+                None ->
+                    MsgSelectGame
+
+                _ ->
+                    MsgUnloadGame
+    in
     Sub.batch
         [ Ports.subscriptions
             { invalidCommand = MsgNoOp
             , isPlaying = MsgIsPlaying
-            , duration = MsgDuration
+            , songLoaded = MsgSongLoaded
             , pos = MsgPos
             }
         , Keyboard.subscriptions
@@ -243,8 +306,10 @@ subscriptions model =
             , toggleHit = MsgToggleHit
             , previousHit = MsgNoOp
             , nextHit = MsgNoOp
-            , openSong = MsgSelectSong
-            , openGame = MsgSelectGame
+            , openSong = openSong
+            , openGame = openGame
+            , newGame = MsgNewGame
+            , exportGame = MsgExportGame
             }
         ]
 
@@ -443,39 +508,79 @@ editorView model =
 propertiesView : Model -> Element Msg
 propertiesView model =
     column [ height fill, width (shrink |> minimum 300), centerX, spacing 5 ]
-        [ case model.song of
-            Nothing ->
-                openSongView
-
-            Just song ->
-                songPropertiesView song
+        [ songPropertiesView model.song
         , gamePropertiesView model.game
         ]
 
 
-openSongView : Element Msg
-openSongView =
-    el [ paddingXY 0 30, centerX ] <|
-        button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-            { onPress = Just MsgSelectSong
-            , label = text "o: Select Song"
-            }
+songPropertiesView : FileResource Song -> Element Msg
+songPropertiesView resource =
+    case resource of
+        None ->
+            el [ paddingXY 0 30, centerX ] <|
+                button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                    { onPress = Just MsgSelectSong
+                    , label = text "o: Select Song"
+                    }
+
+        Loading _ ->
+            el [ paddingXY 0 30, centerX ] <|
+                text "Loading"
+
+        Loaded song ->
+            column [ paddingXY 0 30, centerX, spacing 10 ] <|
+                [ text (File.name song.file)
+                , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                    { onPress = Just MsgUnloadSong
+                    , label = text "o: Unload Song"
+                    }
+                ]
+
+        FailedToLoad ->
+            none
 
 
-songPropertiesView : Song -> Element Msg
-songPropertiesView song =
-    el [ paddingXY 0 30, centerX ] <|
-        if song.loading then
-            text "Loading"
+gamePropertiesView : FileResource Game -> Element Msg
+gamePropertiesView resource =
+    case resource of
+        None ->
+            column [ paddingXY 0 30, centerX, spacing 10 ] <|
+                [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                    { onPress = Just MsgSelectGame
+                    , label = text "g: Select Game file"
+                    }
+                , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                    { onPress = Just MsgNewGame
+                    , label = text "n: New Game file"
+                    }
+                ]
 
-        else
-            text song.name
+        Loading _ ->
+            el [ paddingXY 0 30, centerX ] <|
+                text "Loading"
 
+        Loaded game ->
+            column [ paddingXY 0 30, centerX, spacing 10 ] <|
+                [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                    { onPress = Just MsgExportGame
+                    , label = text "x: Export Game"
+                    }
+                , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                    { onPress = Just MsgUnloadGame
+                    , label = text "g: Unload Game"
+                    }
+                ]
 
-gamePropertiesView : Game -> Element Msg
-gamePropertiesView game =
-    el [ paddingXY 0 30, centerX ] <|
-        button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-            { onPress = Just MsgSelectGame
-            , label = text "g: Select Game file"
-            }
+        FailedToLoad ->
+            column [ paddingXY 0 30, centerX, spacing 10 ] <|
+                [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                    { onPress = Just MsgSelectGame
+                    , label = text "g: Select Game file"
+                    }
+                , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                    { onPress = Just MsgNewGame
+                    , label = text "n: New Game file"
+                    }
+                , el [ centerX ] <|
+                    text "Failed to load"
+                ]

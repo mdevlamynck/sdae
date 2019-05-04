@@ -17,6 +17,9 @@ app.ports.toJs.subscribe(function (json) {
         case 'load':
             load(json);
             break;
+        case 'unload':
+            unload();
+            break;
         case 'begin':
             begin();
             break;
@@ -43,7 +46,7 @@ function load(json) {
         src: [json.song],
         onload: function(){
             song = loading;
-            toElm('duration');
+            toElm('songLoaded');
 
             playPause();
         },
@@ -68,6 +71,15 @@ function load(json) {
             toElm('pos');
         }
     });
+}
+
+function unload() {
+    if (song === null) {
+        return;
+    }
+
+    song.unload();
+    song = null;
 }
 
 function begin() {
@@ -137,7 +149,7 @@ function toElm(command) {
         case 'isPlaying':
             payload.isPlaying = isPlaying;
             break;
-        case 'duration':
+        case 'songLoaded':
             payload.duration = song.duration();
             break;
         case 'pos':

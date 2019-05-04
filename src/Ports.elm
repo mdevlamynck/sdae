@@ -1,4 +1,4 @@
-port module Ports exposing (backward, begin, end, forward, load, playPause, seek, subscriptions)
+port module Ports exposing (backward, begin, end, forward, load, playPause, seek, subscriptions, unload)
 
 import Json.Decode as D exposing (Decoder, andThen, decodeValue, fail, field)
 import Json.Decode.Pipeline exposing (required)
@@ -15,6 +15,11 @@ load song =
             [ ( "command", string "load" )
             , ( "song", string song )
             ]
+
+
+unload : Cmd msg
+unload =
+    toJs <| object [ ( "command", string "unload" ) ]
 
 
 begin : Cmd msg
@@ -57,7 +62,7 @@ port toElm : (Value -> msg) -> Sub msg
 type alias Commands msg =
     { invalidCommand : msg
     , isPlaying : Bool -> msg
-    , duration : Float -> msg
+    , songLoaded : Float -> msg
     , pos : Float -> msg
     }
 
@@ -77,8 +82,8 @@ commandDecoder commands =
                         D.succeed commands.isPlaying
                             |> required "isPlaying" D.bool
 
-                    "duration" ->
-                        D.succeed commands.duration
+                    "songLoaded" ->
+                        D.succeed commands.songLoaded
                             |> required "duration" D.float
 
                     "pos" ->

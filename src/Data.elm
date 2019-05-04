@@ -1,14 +1,18 @@
-module Data exposing (Game, Hit(..), Input, Song)
+module Data exposing (FileResource(..), Game, Hit(..), Input, Song)
 
 import EverySet exposing (EverySet)
 import File exposing (File)
 
 
+type FileResource f
+    = None
+    | Loading f
+    | Loaded f
+    | FailedToLoad
+
+
 type alias Song =
-    { file : File
-    , name : String
-    , loading : Bool
-    }
+    { file : File }
 
 
 type alias Game =

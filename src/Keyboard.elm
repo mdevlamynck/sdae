@@ -15,6 +15,8 @@ type alias Commands msg =
     , nextHit : msg
     , openSong : msg
     , openGame : msg
+    , newGame : msg
+    , exportGame : msg
     }
 
 
@@ -105,6 +107,12 @@ commandDecoder commands =
 
                     ( _, "g", _ ) ->
                         succeed <| commands.openGame
+
+                    ( _, "n", _ ) ->
+                        succeed <| commands.newGame
+
+                    ( _, "x", _ ) ->
+                        succeed <| commands.exportGame
 
                     _ ->
                         fail ""
