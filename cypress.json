@@ -1,0 +1,5 @@
+{
+	"integrationFolder": "tests/e2e",
+	"video": false,
+	"baseUrl": "http://localhost:1234"
+}

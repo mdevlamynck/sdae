@@ -1,6 +1,8 @@
-module Element.Utils exposing (elWhenJust)
+module Element.Utils exposing (checked, elWhenJust)
 
 import Element exposing (..)
+import Html.Attributes exposing (property)
+import Json.Encode exposing (bool)
 
 
 elWhenJust : Maybe a -> (a -> Element msg) -> Element msg
@@ -11,3 +13,8 @@ elWhenJust maybe view =
 
         Nothing ->
             none
+
+
+checked : Bool -> Attribute msg
+checked isChecheked =
+    htmlAttribute <| property "checked" (bool isChecheked)

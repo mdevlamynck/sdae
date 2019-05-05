@@ -9,7 +9,8 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
-import Element.Utils exposing (elWhenJust)
+import Element.Region exposing (aside, mainContent, navigation)
+import Element.Utils exposing (checked, elWhenJust)
 import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Download as Download
@@ -364,7 +365,7 @@ mainView model =
 
 inputListView : Model -> Element Msg
 inputListView model =
-    column [ height fill, width (shrink |> minimum 200), centerX ] <|
+    column [ height fill, width (shrink |> minimum 200), centerX, aside ] <|
         List.map inputRowView model.inputs
 
 
@@ -375,7 +376,7 @@ inputRowView model =
 
 playerView : Model -> Element Msg
 playerView model =
-    column [ width fill, spacing 20, paddingXY 0 20 ]
+    column [ width fill, spacing 20, paddingXY 0 20, navigation ]
         [ row [ centerX, spacing 20, Font.size 30 ]
             [ beginBtn
             , backwardBtn
@@ -455,59 +456,89 @@ progressBarView model =
 
 editorView : Model -> Element Msg
 editorView model =
-    let
-        label hit input =
-            if EverySet.member hit input.hits then
-                button
-                    [ width (fillPortion 2)
-                    , height (fillPortion 2)
-                    , centerX
-                    , centerY
-                    , Background.color <| rgb 0.5 0.5 0.5
-                    ]
-                    { onPress = Just (MsgRemoveHit hit)
-                    , label = none
-                    }
-
-            else
-                button
-                    [ width (fillPortion 2)
-                    , height (fillPortion 2)
-                    , centerX
-                    , centerY
-                    , Background.color <| rgb 0.2 0.2 0.2
-                    ]
-                    { onPress = Just (MsgAddHit hit)
-                    , label = none
-                    }
-    in
-    el [ width (fill |> maximum 400), height (fill |> maximum 400), centerX, centerY ] <|
+    el [ width (fill |> maximum 400), height (fill |> maximum 400), centerX, centerY, mainContent ] <|
         elWhenJust model.currentInput <|
             \input ->
                 column [ width fill, height fill, centerX, centerY ]
                     [ row [ width fill, height fill, centerX, centerY ]
                         [ el [ width (fillPortion 1) ] none
-                        , label LeftUp input
-                        , label RightUp input
+                        , hitButton LeftUp input
+                        , hitButton RightUp input
                         , el [ width (fillPortion 1) ] none
                         ]
                     , row [ width fill, height fill, centerX, centerY ]
-                        [ label LeftMiddle input
+                        [ hitButton LeftMiddle input
                         , el [ width (fillPortion 2) ] none
-                        , label RightMiddle input
+                        , hitButton RightMiddle input
                         ]
                     , row [ width fill, height fill, centerX, centerY ]
                         [ el [ width (fillPortion 1) ] none
-                        , label LeftDown input
-                        , label RightDown input
+                        , hitButton LeftDown input
+                        , hitButton RightDown input
                         , el [ width (fillPortion 1) ] none
                         ]
                     ]
 
 
+hitButton : Hit -> Input -> Element Msg
+hitButton hit input =
+    let
+        key =
+            case hit of
+                LeftUp ->
+                    "f"
+
+                LeftMiddle ->
+                    "d"
+
+                LeftDown ->
+                    "s"
+
+                RightUp ->
+                    "j"
+
+                RightMiddle ->
+                    "k"
+
+                RightDown ->
+                    "l"
+    in
+    if EverySet.member hit input.hits then
+        button
+            [ width (fillPortion 2)
+            , height (fillPortion 2)
+            , centerX
+            , centerY
+            , Background.color <| rgb 0.5 0.5 0.5
+            , Font.color <| rgb 0.1 0.1 0.1
+            , Font.center
+            , Font.size 20
+            , checked True
+            ]
+            { onPress = Just (MsgRemoveHit hit)
+            , label = text key
+            }
+
+    else
+        button
+            [ width (fillPortion 2)
+            , height (fillPortion 2)
+            , centerX
+            , centerY
+            , Background.color <| rgb 0.2 0.2 0.2
+            , Font.color <| rgb 0.9 0.9 0.9
+            , Font.center
+            , Font.size 20
+            , checked False
+            ]
+            { onPress = Just (MsgAddHit hit)
+            , label = text key
+            }
+
+
 propertiesView : Model -> Element Msg
 propertiesView model =
-    column [ height fill, width (shrink |> minimum 300), centerX, spacing 5 ]
+    column [ height fill, width (shrink |> minimum 300), centerX, spacing 5, aside ]
         [ songPropertiesView model.song
         , gamePropertiesView model.game
         ]
