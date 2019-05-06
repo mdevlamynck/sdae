@@ -1,3 +1,4 @@
+
 import {Howl, Howler} from 'howler';
 import {Elm} from './src/Main.elm';
 
@@ -6,11 +7,17 @@ const app = Elm.Main.init({
     flags: {}
 });
 
+// For Tests
+window.cypress = (json) => {
+    console.log(json);
+	app.ports.cypress.send(json);
+};
+
 var song = null;
 var isPlaying = false;
 var posTimeout = 100;
 
-app.ports.toJs.subscribe(function (json) {
+app.ports.toJs.subscribe((json) => {
     console.log(json);
 
     switch (json.command) {
@@ -95,7 +102,7 @@ function backward() {
         return;
     }
 
-    song.seek(song.seek() - 1);
+    song.seek(Math.max(song.seek() - 1, 0));
 }
 
 function playPause() {
@@ -115,7 +122,7 @@ function forward() {
         return;
     }
 
-    song.seek(song.seek() + 1);
+    song.seek(Math.min(song.seek() + 1, song.duration()));
 }
 
 function end() {

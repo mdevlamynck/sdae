@@ -1,4 +1,4 @@
-port module Ports exposing (backward, begin, end, forward, load, playPause, seek, subscriptions, unload)
+port module Ports exposing (backward, begin, cypressSubscriptions, end, forward, load, playPause, seek, subscriptions, unload)
 
 import Json.Decode as D exposing (Decoder, andThen, decodeValue, fail, field)
 import Json.Decode.Pipeline exposing (required)
@@ -89,6 +89,36 @@ commandDecoder commands =
                     "pos" ->
                         D.succeed commands.pos
                             |> required "pos" D.float
+
+                    _ ->
+                        fail ""
+            )
+
+
+port cypress : (Value -> msg) -> Sub msg
+
+
+type alias CypressCommands msg =
+    { invalidCommand : msg
+    , loadSong : String -> String -> msg
+    }
+
+
+cypressSubscriptions : CypressCommands msg -> Sub msg
+cypressSubscriptions commands =
+    cypress (decodeValue (cypressCommandDecoder commands) >> Result.withDefault commands.invalidCommand)
+
+
+cypressCommandDecoder : CypressCommands msg -> Decoder msg
+cypressCommandDecoder commands =
+    field "command" D.string
+        |> andThen
+            (\command ->
+                case command of
+                    "loadSong" ->
+                        D.succeed commands.loadSong
+                            |> required "name" D.string
+                            |> required "song" D.string
 
                     _ ->
                         fail ""

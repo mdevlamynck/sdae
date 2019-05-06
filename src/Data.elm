@@ -12,7 +12,7 @@ type FileResource f
 
 
 type alias Song =
-    { file : File }
+    { name : String }
 
 
 type alias Game =

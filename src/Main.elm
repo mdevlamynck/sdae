@@ -97,6 +97,8 @@ type Msg
     | MsgExportGame
     | MsgGameSelected File
     | MsgGameLoaded Bytes
+      -- Cypress
+    | MsgCypressLoadSong String String
 
 
 
@@ -220,7 +222,7 @@ update msg model =
             )
 
         MsgSongSelected file ->
-            ( { model | song = Loading { file = file } }
+            ( { model | song = Loading { name = File.name file } }
             , Task.perform MsgSongContent (File.toUrl file)
             )
 
@@ -273,6 +275,11 @@ update msg model =
                     , Cmd.none
                     )
 
+        MsgCypressLoadSong name content ->
+            ( { model | song = Loading { name = name } }
+            , Ports.load content
+            )
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -311,6 +318,10 @@ subscriptions model =
             , openGame = openGame
             , newGame = MsgNewGame
             , exportGame = MsgExportGame
+            }
+        , Ports.cypressSubscriptions
+            { invalidCommand = MsgNoOp
+            , loadSong = MsgCypressLoadSong
             }
         ]
 
@@ -560,7 +571,7 @@ songPropertiesView resource =
 
         Loaded song ->
             column [ paddingXY 0 30, centerX, spacing 10 ] <|
-                [ text (File.name song.file)
+                [ el [ centerX ] <| text song.name
                 , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
                     { onPress = Just MsgUnloadSong
                     , label = text "o: Unload Song"
