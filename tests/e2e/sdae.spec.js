@@ -35,80 +35,6 @@ context('SDAE', () => {
 		cy.visit('/')
 	})
 
-	describe('game manager', () => {
-		it('can manage game file using keyboard', () => {
-			cy.contains('New Game')
-			cy.input('n')
-
-			cy.contains('Export Game') // can not run tests involving file dialog at the moment
-			cy.contains('Unload Game')
-			cy.input('g')
-
-			cy.contains('New Game')
-		})
-
-		it('can manage game file using buttons', () => {
-			cy.contains('New Game').click()
-
-			cy.contains('Export Game') // can not run tests involving file dialog at the moment
-			cy.contains('Unload Game').click()
-
-			cy.contains('New Game')
-		})
-
-		it('can load game', () => {
-			cy.loadGame()
-		})
-	})
-
-	describe('hit editor', () => {
-		it('can edit hits using keyboard', () => {
-			cy.input('KeyF')
-			cy.input('KeyD')
-			cy.input('KeyS')
-			cy.input('KeyJ')
-			cy.input('KeyK')
-			cy.input('KeyL')
-
-			cy.get('main').contains('f').parent().should('have.prop', 'checked', true)
-			cy.get('main').contains('d').parent().should('have.prop', 'checked', true)
-			cy.get('main').contains('s').parent().should('have.prop', 'checked', true)
-			cy.get('main').contains('j').parent().should('have.prop', 'checked', true)
-			cy.get('main').contains('k').parent().should('have.prop', 'checked', true)
-			cy.get('main').contains('l').parent().should('have.prop', 'checked', true)
-
-			cy.input('KeyF')
-			cy.input('KeyD')
-			cy.input('KeyS')
-			cy.input('KeyJ')
-			cy.input('KeyK')
-			cy.input('KeyL')
-
-			cy.get('main').contains('f').parent().should('have.prop', 'checked', false)
-			cy.get('main').contains('d').parent().should('have.prop', 'checked', false)
-			cy.get('main').contains('s').parent().should('have.prop', 'checked', false)
-			cy.get('main').contains('j').parent().should('have.prop', 'checked', false)
-			cy.get('main').contains('k').parent().should('have.prop', 'checked', false)
-			cy.get('main').contains('l').parent().should('have.prop', 'checked', false)
-		})
-
-		it('can edit hits using buttons', () => {
-			cy.get('main').contains('f').parent().click().should('have.prop', 'checked', true)
-			cy.get('main').contains('d').parent().click().should('have.prop', 'checked', true)
-			cy.get('main').contains('s').parent().click().should('have.prop', 'checked', true)
-			cy.get('main').contains('j').parent().click().should('have.prop', 'checked', true)
-			cy.get('main').contains('k').parent().click().should('have.prop', 'checked', true)
-			cy.get('main').contains('l').parent().click().should('have.prop', 'checked', true)
-
-			cy.get('main').contains('f').parent().click().should('have.prop', 'checked', false)
-			cy.get('main').contains('d').parent().click().should('have.prop', 'checked', false)
-			cy.get('main').contains('s').parent().click().should('have.prop', 'checked', false)
-			cy.get('main').contains('j').parent().click().should('have.prop', 'checked', false)
-			cy.get('main').contains('k').parent().click().should('have.prop', 'checked', false)
-			cy.get('main').contains('l').parent().click().should('have.prop', 'checked', false)
-		})
-	})
-
 	describe('player', () => {
 		beforeEach(() => {
 			cy.loadSong()
@@ -157,6 +83,80 @@ context('SDAE', () => {
 			cy.get('nav input[type="range"]').should('have.prop', 'value').and('not.be.eq', '0')
 			cy.input('ArrowLeft')
 			cy.get('nav input[type="range"]').should('have.prop', 'value', '0')
+		})
+	})
+
+	describe('game manager', () => {
+		it('can manage new game file using buttons', () => {
+			cy.contains('New Game').click()
+
+			cy.contains('Export Game') // can not run tests involving file dialog at the moment
+			cy.contains('Unload Game').click()
+
+			cy.contains('New Game')
+		})
+
+		it('can manage new game file using keyboard', () => {
+			cy.contains('New Game')
+			cy.input('n')
+
+			cy.contains('Export Game') // can not run tests involving file dialog at the moment
+			cy.contains('Unload Game')
+			cy.input('g')
+
+			cy.contains('New Game')
+		})
+
+		it('can load game', () => {
+			cy.loadGame()
+		})
+	})
+
+	describe('hit editor', () => {
+		it('can edit hits using buttons', () => {
+			cy.get('main').contains('f').parent().click().should('have.prop', 'checked', true)
+			cy.get('main').contains('d').parent().click().should('have.prop', 'checked', true)
+			cy.get('main').contains('s').parent().click().should('have.prop', 'checked', true)
+			cy.get('main').contains('j').parent().click().should('have.prop', 'checked', true)
+			cy.get('main').contains('k').parent().click().should('have.prop', 'checked', true)
+			cy.get('main').contains('l').parent().click().should('have.prop', 'checked', true)
+
+			cy.get('main').contains('f').parent().click().should('have.prop', 'checked', false)
+			cy.get('main').contains('d').parent().click().should('have.prop', 'checked', false)
+			cy.get('main').contains('s').parent().click().should('have.prop', 'checked', false)
+			cy.get('main').contains('j').parent().click().should('have.prop', 'checked', false)
+			cy.get('main').contains('k').parent().click().should('have.prop', 'checked', false)
+			cy.get('main').contains('l').parent().click().should('have.prop', 'checked', false)
+		})
+
+		it('can edit hits using keyboard', () => {
+			cy.input('KeyF')
+			cy.input('KeyD')
+			cy.input('KeyS')
+			cy.input('KeyJ')
+			cy.input('KeyK')
+			cy.input('KeyL')
+
+			cy.get('main').contains('f').parent().should('have.prop', 'checked', true)
+			cy.get('main').contains('d').parent().should('have.prop', 'checked', true)
+			cy.get('main').contains('s').parent().should('have.prop', 'checked', true)
+			cy.get('main').contains('j').parent().should('have.prop', 'checked', true)
+			cy.get('main').contains('k').parent().should('have.prop', 'checked', true)
+			cy.get('main').contains('l').parent().should('have.prop', 'checked', true)
+
+			cy.input('KeyF')
+			cy.input('KeyD')
+			cy.input('KeyS')
+			cy.input('KeyJ')
+			cy.input('KeyK')
+			cy.input('KeyL')
+
+			cy.get('main').contains('f').parent().should('have.prop', 'checked', false)
+			cy.get('main').contains('d').parent().should('have.prop', 'checked', false)
+			cy.get('main').contains('s').parent().should('have.prop', 'checked', false)
+			cy.get('main').contains('j').parent().should('have.prop', 'checked', false)
+			cy.get('main').contains('k').parent().should('have.prop', 'checked', false)
+			cy.get('main').contains('l').parent().should('have.prop', 'checked', false)
 		})
 	})
 })
