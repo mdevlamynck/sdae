@@ -4,10 +4,12 @@
     "build": "parcel build index.html",
     "test": "elm-test",
     "e2e": "cypress run",
+    "test-format": "elm-format --validate .",
     "cypress": "cypress"
   },
   "devDependencies": {
     "cypress": "^3.2.0",
+    "elm-format": "^0.8.1",
     "elm-hot": "^1.0.1",
     "node-elm-compiler": "^5.0.3",
     "parcel-bundler": "^1.12.3"

@@ -1,0 +1,25 @@
+language: elm
+elm:
+    - "0.19.0"
+
+addons:
+  apt:
+    packages:
+      - libgconf-2-4
+
+cache:
+  directories:
+    - ~/.elm
+    - ~/.npm
+    - ~/.cache
+  override:
+    - npm ci
+    - npm run cy:verify
+
+script:
+  - npm run build
+  - npm run test-format
+  - npm run test
+  - npm run serve &
+  - npm run e2e
+  - kill $(jobs -p) || true
