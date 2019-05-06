@@ -1,4 +1,4 @@
-module Data exposing (FileResource(..), Game, Hit(..), Input, Song)
+module Data exposing (FileResource(..), Game, Hit(..), Input, Song, emptyInput)
 
 import EverySet exposing (EverySet)
 import File exposing (File)
@@ -22,6 +22,11 @@ type alias Game =
 type alias Input =
     { hits : EverySet Hit
     }
+
+
+emptyInput : Input
+emptyInput =
+    { hits = EverySet.empty }
 
 
 type Hit

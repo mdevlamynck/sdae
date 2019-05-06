@@ -113,6 +113,11 @@ context('SDAE', () => {
 	})
 
 	describe('hit editor', () => {
+		beforeEach(() => {
+			cy.loadSong()
+			cy.contains('⏸').click()
+		})
+
 		it('can edit hits using buttons', () => {
 			cy.get('main').contains('f').parent().click().should('have.prop', 'checked', true)
 			cy.get('main').contains('d').parent().click().should('have.prop', 'checked', true)
@@ -157,6 +162,14 @@ context('SDAE', () => {
 			cy.get('main').contains('j').parent().should('have.prop', 'checked', false)
 			cy.get('main').contains('k').parent().should('have.prop', 'checked', false)
 			cy.get('main').contains('l').parent().should('have.prop', 'checked', false)
+		})
+
+		it('using the editor creates an input when none is active', () => {
+			cy.get('aside').contains('hit 1').should('not.exist')
+
+			cy.input('KeyF')
+
+			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', true)
 		})
 	})
 })

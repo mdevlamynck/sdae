@@ -4,14 +4,14 @@ import AMG
 import Base64
 import Browser
 import Bytes exposing (Bytes)
-import Data exposing (FileResource(..), Game, Hit(..), Input, Song)
+import Data exposing (FileResource(..), Game, Hit(..), Input, Song, emptyInput)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
 import Element.Region exposing (aside, mainContent, navigation)
-import Element.Utils exposing (checked, elWhenJust)
+import Element.Utils exposing (active, checked, elWhenJust)
 import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Download as Download
@@ -56,16 +56,13 @@ type alias Model =
     , duration : Float
 
     -- Editor
-    , currentInput : Maybe Input
+    , inputs : List Input
 
     -- Song
     , song : FileResource Song
 
     -- Game File
     , game : FileResource Game
-
-    -- Inputs
-    , inputs : List Input
     }
 
 
@@ -109,14 +106,10 @@ type Msg
 
 init : Flags -> ( Model, Cmd Msg )
 init _ =
-    ( { inputs = []
-      , isPlaying = False
+    ( { isPlaying = False
       , pos = 0
       , duration = 0
-      , currentInput =
-            Just
-                { hits = EverySet.empty
-                }
+      , inputs = []
       , song = None
       , game = None
       }
@@ -339,12 +332,18 @@ subscriptions model =
 
 mapCurrentInput : (Input -> Input) -> Model -> Model
 mapCurrentInput function model =
-    { model | currentInput = model.currentInput |> Maybe.map function }
+    { model | inputs = [ function (findCurrentInput model) ] }
 
 
 mapInputHits : (EverySet Hit -> EverySet Hit) -> Input -> Input
 mapInputHits function input =
     { input | hits = function input.hits }
+
+
+findCurrentInput : Model -> Input
+findCurrentInput model =
+    List.head model.inputs
+        |> Maybe.withDefault emptyInput
 
 
 
@@ -375,7 +374,7 @@ view model =
 
 mainView : Model -> Element Msg
 mainView model =
-    row [ width fill, height fill, spacing 5 ]
+    row [ width fill, height fill, spacing 40, padding 20 ]
         [ inputListView model
         , column [ width fill, height fill, spacing 5 ]
             [ playerView model
@@ -387,18 +386,23 @@ mainView model =
 
 inputListView : Model -> Element Msg
 inputListView model =
-    column [ height fill, width (shrink |> minimum 200), centerX, aside ] <|
-        List.map inputRowView model.inputs
+    column [ height fill, width (shrink |> minimum 200), scrollbarY, aside ] <|
+        List.indexedMap (inputRowView model) model.inputs
 
 
-inputRowView : Input -> Element Msg
-inputRowView model =
-    text "input row"
+inputRowView : Model -> Int -> Input -> Element Msg
+inputRowView model pos input =
+    let
+        isActive =
+            findCurrentInput model == input
+    in
+    el [ Font.center, centerX, padding 10, width fill, active isActive, Background.color buttonColor ] <|
+        text ("hit " ++ String.fromInt (pos + 1))
 
 
 playerView : Model -> Element Msg
 playerView model =
-    column [ width fill, spacing 20, paddingXY 0 20, navigation ]
+    column [ width fill, spacing 20, navigation ]
         [ row [ centerX, spacing 20, Font.size 30 ]
             [ beginBtn
             , backwardBtn
@@ -478,28 +482,30 @@ progressBarView model =
 
 editorView : Model -> Element Msg
 editorView model =
+    let
+        input =
+            findCurrentInput model
+    in
     el [ width (fill |> maximum 400), height (fill |> maximum 400), centerX, centerY, mainContent ] <|
-        elWhenJust model.currentInput <|
-            \input ->
-                column [ width fill, height fill, centerX, centerY ]
-                    [ row [ width fill, height fill, centerX, centerY ]
-                        [ el [ width (fillPortion 1) ] none
-                        , hitButton LeftUp input
-                        , hitButton RightUp input
-                        , el [ width (fillPortion 1) ] none
-                        ]
-                    , row [ width fill, height fill, centerX, centerY ]
-                        [ hitButton LeftMiddle input
-                        , el [ width (fillPortion 2) ] none
-                        , hitButton RightMiddle input
-                        ]
-                    , row [ width fill, height fill, centerX, centerY ]
-                        [ el [ width (fillPortion 1) ] none
-                        , hitButton LeftDown input
-                        , hitButton RightDown input
-                        , el [ width (fillPortion 1) ] none
-                        ]
-                    ]
+        column [ width fill, height fill, centerX, centerY ]
+            [ row [ width fill, height fill, centerX, centerY ]
+                [ el [ width (fillPortion 1) ] none
+                , hitButton LeftUp input
+                , hitButton RightUp input
+                , el [ width (fillPortion 1) ] none
+                ]
+            , row [ width fill, height fill, centerX, centerY ]
+                [ hitButton LeftMiddle input
+                , el [ width (fillPortion 2) ] none
+                , hitButton RightMiddle input
+                ]
+            , row [ width fill, height fill, centerX, centerY ]
+                [ el [ width (fillPortion 1) ] none
+                , hitButton LeftDown input
+                , hitButton RightDown input
+                , el [ width (fillPortion 1) ] none
+                ]
+            ]
 
 
 hitButton : Hit -> Input -> Element Msg
@@ -560,7 +566,7 @@ hitButton hit input =
 
 propertiesView : Model -> Element Msg
 propertiesView model =
-    column [ height fill, width (shrink |> minimum 300), centerX, spacing 5, aside ]
+    column [ height fill, width (shrink |> minimum 200), centerX, spacing 60, aside ]
         [ songPropertiesView model.song
         , gamePropertiesView model.game
         ]
@@ -570,7 +576,7 @@ songPropertiesView : FileResource Song -> Element Msg
 songPropertiesView resource =
     case resource of
         None ->
-            el [ paddingXY 0 30, centerX ] <|
+            el [ centerX ] <|
                 button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
                     { onPress = Just MsgSelectSong
                     , label = text "o: Select Song"
@@ -581,7 +587,7 @@ songPropertiesView resource =
                 text "Loading"
 
         Loaded song ->
-            column [ paddingXY 0 30, centerX, spacing 10 ] <|
+            column [ centerX, spacing 10 ] <|
                 [ el [ centerX ] <| text song.name
                 , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
                     { onPress = Just MsgUnloadSong
@@ -597,7 +603,7 @@ gamePropertiesView : FileResource Game -> Element Msg
 gamePropertiesView resource =
     case resource of
         None ->
-            column [ paddingXY 0 30, centerX, spacing 10 ] <|
+            column [ centerX, spacing 10 ] <|
                 [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
                     { onPress = Just MsgSelectGame
                     , label = text "g: Select Game file"
@@ -609,11 +615,11 @@ gamePropertiesView resource =
                 ]
 
         Loading _ ->
-            el [ paddingXY 0 30, centerX ] <|
+            el [ centerX ] <|
                 text "Loading"
 
         Loaded game ->
-            column [ paddingXY 0 30, centerX, spacing 10 ] <|
+            column [ centerX, spacing 10 ] <|
                 [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
                     { onPress = Just MsgExportGame
                     , label = text "x: Export Game"
@@ -625,7 +631,7 @@ gamePropertiesView resource =
                 ]
 
         FailedToLoad ->
-            column [ paddingXY 0 30, centerX, spacing 10 ] <|
+            column [ centerX, spacing 10 ] <|
                 [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
                     { onPress = Just MsgSelectGame
                     , label = text "g: Select Game file"
