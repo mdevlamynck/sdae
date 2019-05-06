@@ -3,7 +3,7 @@
     "serve": "parcel serve index.html",
     "test": "elm-test",
     "e2e": "cypress run",
-	"cypress": "cypress"
+    "cypress": "cypress"
   },
   "devDependencies": {
     "cypress": "^3.2.0",

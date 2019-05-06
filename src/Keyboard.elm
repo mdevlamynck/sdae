@@ -69,49 +69,49 @@ commandDecoder commands =
         |> andThen
             (\{ code, key, modifier } ->
                 case ( code, key, modifier ) of
-                    ( "Space", _, _ ) ->
+                    ( "Space", _, None ) ->
                         succeed commands.playPause
 
-                    ( "KeyF", _, _ ) ->
+                    ( "KeyF", _, None ) ->
                         succeed <| commands.toggleHit LeftUp
 
-                    ( "KeyD", _, _ ) ->
+                    ( "KeyD", _, None ) ->
                         succeed <| commands.toggleHit LeftMiddle
 
-                    ( "KeyS", _, _ ) ->
+                    ( "KeyS", _, None ) ->
                         succeed <| commands.toggleHit LeftDown
 
-                    ( "KeyJ", _, _ ) ->
+                    ( "KeyJ", _, None ) ->
                         succeed <| commands.toggleHit RightUp
 
-                    ( "KeyK", _, _ ) ->
+                    ( "KeyK", _, None ) ->
                         succeed <| commands.toggleHit RightMiddle
 
-                    ( "KeyL", _, _ ) ->
+                    ( "KeyL", _, None ) ->
                         succeed <| commands.toggleHit RightDown
 
-                    ( "ArrowLeft", _, _ ) ->
+                    ( "ArrowLeft", _, None ) ->
                         succeed <| commands.backward
 
-                    ( "ArrowRight", _, _ ) ->
+                    ( "ArrowRight", _, None ) ->
                         succeed <| commands.forward
 
-                    ( "ArrowUp", _, _ ) ->
+                    ( "ArrowUp", _, None ) ->
                         succeed <| commands.previousHit
 
-                    ( "ArrowDown", _, _ ) ->
+                    ( "ArrowDown", _, None ) ->
                         succeed <| commands.nextHit
 
-                    ( _, "o", _ ) ->
+                    ( _, "o", None ) ->
                         succeed <| commands.openSong
 
-                    ( _, "g", _ ) ->
+                    ( _, "g", None ) ->
                         succeed <| commands.openGame
 
-                    ( _, "n", _ ) ->
+                    ( _, "n", None ) ->
                         succeed <| commands.newGame
 
-                    ( _, "x", _ ) ->
+                    ( _, "x", None ) ->
                         succeed <| commands.exportGame
 
                     _ ->

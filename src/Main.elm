@@ -111,7 +111,7 @@ init _ =
       , duration = 0
       , currentInput =
             Just
-                { hits = EverySet.fromList [ LeftUp, RightDown ]
+                { hits = EverySet.empty
                 }
       , song = None
       , game = None
