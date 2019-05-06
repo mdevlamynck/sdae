@@ -1,6 +1,7 @@
 module Main exposing (main)
 
 import AMG
+import Base64
 import Browser
 import Bytes exposing (Bytes)
 import Data exposing (FileResource(..), Game, Hit(..), Input, Song)
@@ -99,6 +100,7 @@ type Msg
     | MsgGameLoaded Bytes
       -- Cypress
     | MsgCypressLoadSong String String
+    | MsgCypressLoadGame String
 
 
 
@@ -280,6 +282,14 @@ update msg model =
             , Ports.load content
             )
 
+        MsgCypressLoadGame content ->
+            case Base64.toBytes content of
+                Just bytes ->
+                    update (MsgGameLoaded bytes) model
+
+                Nothing ->
+                    ( model, Cmd.none )
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -322,6 +332,7 @@ subscriptions model =
         , Ports.cypressSubscriptions
             { invalidCommand = MsgNoOp
             , loadSong = MsgCypressLoadSong
+            , loadGame = MsgCypressLoadGame
             }
         ]
 

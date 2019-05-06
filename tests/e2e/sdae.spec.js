@@ -14,10 +14,19 @@ cy.input = (key) => {
 
 cy.loadSong = () => {
 	cy.fixture('sample.ogg', 'binary').then((song) => {
-		var urlEncoded = btoa(song);
-		cy.window().invoke('cypress', {command: 'loadSong', song: 'data:audio/ogg;base64,' + urlEncoded, name: 'sample.ogg'})
+		var base64 = btoa(song)
+		cy.window().invoke('cypress', {command: 'loadSong', song: 'data:audio/ogg;base64,' + base64, name: 'sample.ogg'})
 
 		cy.contains('sample.ogg')
+	})
+}
+
+cy.loadGame = () => {
+	cy.fixture('sample.AMG', 'binary').then((game) => {
+		var base64 = btoa(game)
+		cy.window().invoke('cypress', {command: 'loadGame', game: base64})
+
+		cy.contains('Failed to load')
 	})
 }
 
@@ -45,6 +54,10 @@ context('SDAE', () => {
 			cy.contains('Unload Game').click()
 
 			cy.contains('New Game')
+		})
+
+		it('can load game', () => {
+			cy.loadGame()
 		})
 	})
 
@@ -97,16 +110,16 @@ context('SDAE', () => {
 	})
 
 	describe('player', () => {
-		it('can load songs', () => {
+		beforeEach(() => {
 			cy.loadSong()
+		})
 
+		it('can load songs', () => {
 			cy.contains('⏸')
 			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
 		})
 
 		it('can play / pause songs', () => {
-			cy.loadSong()
-
 			cy.contains('⏸').click()
 			cy.contains('⏯').click()
 
@@ -117,23 +130,18 @@ context('SDAE', () => {
 		})
 
 		it('can go to the beginning of the song', () => {
-			cy.loadSong()
-
 			cy.contains('⏮').click()
 			cy.contains('⏯')
 			cy.get('nav input[type="range"]').should('have.prop', 'value', '0')
 		})
 
 		it('can go to the end of the song', () => {
-			cy.loadSong()
-
 			cy.contains('⏭').click()
 			cy.contains('⏯')
 			cy.get('nav input[type="range"]').should('have.prop', 'value', '0')
 		})
 
 		it('can seek backward / forward using button', () => {
-			cy.loadSong()
 			cy.contains('⏮').click()
 
 			cy.contains('⏩').click()
@@ -143,7 +151,6 @@ context('SDAE', () => {
 		})
 
 		it('can seek backward / forward using keyboard', () => {
-			cy.loadSong()
 			cy.contains('⏮').click()
 
 			cy.input('ArrowRight')

@@ -101,6 +101,7 @@ port cypress : (Value -> msg) -> Sub msg
 type alias CypressCommands msg =
     { invalidCommand : msg
     , loadSong : String -> String -> msg
+    , loadGame : String -> msg
     }
 
 
@@ -119,6 +120,10 @@ cypressCommandDecoder commands =
                         D.succeed commands.loadSong
                             |> required "name" D.string
                             |> required "song" D.string
+
+                    "loadGame" ->
+                        D.succeed commands.loadGame
+                            |> required "game" D.string
 
                     _ ->
                         fail ""
