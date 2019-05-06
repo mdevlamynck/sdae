@@ -3,9 +3,12 @@
 ## Run locally
 
 ```
-npm i         # Install dependencies
-npm run serve # Build project and run
-npm run test  # Run tests
+npm i           # Install dependencies
+npm run serve   # Build project and run
+npm run build   # Build project in production mode
+npm run test    # Run tests
+npm run e2e     # Run end to end tests (requires that the project runs with npm run serve)
+npm run cypress # Open cypress e2e tests
 ```
 
 ## Notes

@@ -1,6 +1,7 @@
 {
   "scripts": {
     "serve": "parcel serve index.html",
+    "build": "parcel build index.html",
     "test": "elm-test",
     "e2e": "cypress run",
     "cypress": "cypress"
