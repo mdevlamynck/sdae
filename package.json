@@ -4,7 +4,6 @@
     "build": "parcel build index.html",
     "test": "elm-test",
     "e2e": "cypress run",
-    "ci-e2e": "cypress run --record --key 647e5cd9-5d3e-4810-9685-ae3b7aad2335",
     "test-format": "elm-format --validate .",
     "cypress": "cypress"
   },
