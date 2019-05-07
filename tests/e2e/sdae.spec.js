@@ -58,20 +58,20 @@ context('SDAE', () => {
 		it('can go to the beginning of the song', () => {
 			cy.contains('⏮').click()
 			cy.contains('⏯')
-			cy.get('nav input[type="range"]').should('have.prop', 'value', '0')
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
 		})
 
 		it('can go to the end of the song', () => {
 			cy.contains('⏭').click()
 			cy.contains('⏯')
-			cy.get('nav input[type="range"]').should('have.prop', 'value', '0')
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
 		})
 
 		it('can seek backward / forward using button', () => {
 			cy.contains('⏮').click()
 
 			cy.contains('⏩').click()
-			cy.get('nav input[type="range"]').should('have.prop', 'value').and('not.be.eq', '0')
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
 			cy.contains('⏪').click()
 			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
 		})
@@ -80,9 +80,40 @@ context('SDAE', () => {
 			cy.contains('⏮').click()
 
 			cy.input('ArrowRight')
-			cy.get('nav input[type="range"]').should('have.prop', 'value').and('not.be.eq', '0')
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
 			cy.input('ArrowLeft')
-			cy.get('nav input[type="range"]').should('have.prop', 'value', '0')
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+		})
+
+		it('can not overflow by seeking to far backward', () => {
+			cy.contains('⏮').click()
+
+			cy.input('ArrowLeft')
+			cy.input('ArrowLeft')
+			cy.input('ArrowLeft')
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+			cy.input('ArrowRight')
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+		})
+
+		it('can not overflow by seeking to far forward', () => {
+			cy.contains('⏮').click()
+
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.input('ArrowRight')
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gte', '10')
+			cy.input('ArrowLeft')
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.lt', 10)
 		})
 	})
 
