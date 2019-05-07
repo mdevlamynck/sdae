@@ -20,6 +20,7 @@ import Html exposing (Html)
 import Inputs exposing (..)
 import Keyboard
 import Ports
+import Round exposing (round)
 import Task
 
 
@@ -84,6 +85,7 @@ type Msg
     | MsgAddHit Hit
     | MsgRemoveHit Hit
     | MsgToggleHit Hit
+    | MsgFocusInput Input
       -- Song
     | MsgSelectSong
     | MsgUnloadSong
@@ -193,6 +195,11 @@ update msg model =
         MsgToggleHit hit ->
             ( { model | inputs = model.inputs |> mapCurrentInputHits (toggleMember hit) }
             , Cmd.none
+            )
+
+        MsgFocusInput input ->
+            ( model
+            , Ports.seek input.pos
             )
 
         MsgSelectSong ->
@@ -359,7 +366,7 @@ mainView model =
 
 inputListView : Model -> Element Msg
 inputListView model =
-    column [ height fill, width (shrink |> minimum 200), scrollbarY, aside ] <|
+    column [ height fill, width (shrink |> minimum 200), scrollbarY, aside, spacing 5 ] <|
         List.indexedMap (inputRowView model) (getInputs model.inputs)
 
 
@@ -369,8 +376,10 @@ inputRowView model pos input =
         isActive =
             getCurrentInput model.inputs == input
     in
-    el [ Font.center, centerX, padding 10, width fill, active isActive, attrWhen isActive (Background.color buttonColor) ] <|
-        text ("hit " ++ String.fromInt (pos + 1))
+    button [ padding 10, width fill, active isActive, attrWhen isActive (Background.color buttonColor) ]
+        { onPress = Just (MsgFocusInput input)
+        , label = text ("hit " ++ String.fromInt (pos + 1) ++ " - " ++ round 2 input.pos)
+        }
 
 
 playerView : Model -> Element Msg

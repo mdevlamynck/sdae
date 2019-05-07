@@ -224,5 +224,27 @@ context('SDAE', () => {
 			cy.get('aside').contains('hit 2').parent().should('have.prop', 'active', true)
 			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', false)
 		})
+
+		it('clicking on input seeks to the input pos', () => {
+			cy.contains('⏮').click()
+
+			cy.input('KeyF')
+
+			cy.contains('⏯').click()
+			cy.wait(150)
+			cy.contains('⏸').click()
+
+			cy.input('KeyD')
+
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', false)
+			cy.get('aside').contains('hit 2').parent().should('have.prop', 'active', true)
+
+			cy.get('aside').contains('hit 1').click()
+
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', true)
+			cy.get('aside').contains('hit 2').parent().should('have.prop', 'active', false)
+		})
 	})
 })
