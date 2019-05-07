@@ -4,19 +4,20 @@ import AMG
 import Base64
 import Browser
 import Bytes exposing (Bytes)
-import Data exposing (FileResource(..), Game, Hit(..), Input, Song, emptyInput)
+import Data exposing (FileResource(..), Game, Song)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
 import Element.Region exposing (aside, mainContent, navigation)
-import Element.Utils exposing (active, checked, elWhenJust)
+import Element.Utils exposing (active, attrWhen, checked, elWhenJust)
 import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
 import Html exposing (Html)
+import Inputs exposing (..)
 import Keyboard
 import Ports
 import Task
@@ -56,7 +57,7 @@ type alias Model =
     , duration : Float
 
     -- Editor
-    , inputs : List Input
+    , inputs : Inputs
 
     -- Song
     , song : FileResource Song
@@ -109,7 +110,7 @@ init _ =
     ( { isPlaying = False
       , pos = 0
       , duration = 0
-      , inputs = []
+      , inputs = empty
       , song = None
       , game = None
       }
@@ -145,7 +146,7 @@ update msg model =
             )
 
         MsgPos pos ->
-            ( { model | pos = pos }
+            ( { model | pos = pos, inputs = updatePos pos model.inputs }
             , Cmd.none
             )
 
@@ -180,29 +181,17 @@ update msg model =
             )
 
         MsgAddHit hit ->
-            ( model
-                |> (mapCurrentInput << mapInputHits)
-                    (EverySet.insert hit)
+            ( { model | inputs = model.inputs |> mapCurrentInputHits (EverySet.insert hit) }
             , Cmd.none
             )
 
         MsgRemoveHit hit ->
-            ( model
-                |> (mapCurrentInput << mapInputHits)
-                    (EverySet.remove hit)
+            ( { model | inputs = model.inputs |> mapCurrentInputHits (EverySet.remove hit) }
             , Cmd.none
             )
 
         MsgToggleHit hit ->
-            ( model
-                |> (mapCurrentInput << mapInputHits)
-                    (\hits ->
-                        if EverySet.member hit hits then
-                            EverySet.remove hit hits
-
-                        else
-                            EverySet.insert hit hits
-                    )
+            ( { model | inputs = model.inputs |> mapCurrentInputHits (toggleMember hit) }
             , Cmd.none
             )
 
@@ -330,22 +319,6 @@ subscriptions model =
         ]
 
 
-mapCurrentInput : (Input -> Input) -> Model -> Model
-mapCurrentInput function model =
-    { model | inputs = [ function (findCurrentInput model) ] }
-
-
-mapInputHits : (EverySet Hit -> EverySet Hit) -> Input -> Input
-mapInputHits function input =
-    { input | hits = function input.hits }
-
-
-findCurrentInput : Model -> Input
-findCurrentInput model =
-    List.head model.inputs
-        |> Maybe.withDefault emptyInput
-
-
 
 -- View
 
@@ -387,16 +360,16 @@ mainView model =
 inputListView : Model -> Element Msg
 inputListView model =
     column [ height fill, width (shrink |> minimum 200), scrollbarY, aside ] <|
-        List.indexedMap (inputRowView model) model.inputs
+        List.indexedMap (inputRowView model) (getInputs model.inputs)
 
 
 inputRowView : Model -> Int -> Input -> Element Msg
 inputRowView model pos input =
     let
         isActive =
-            findCurrentInput model == input
+            getCurrentInput model.inputs == input
     in
-    el [ Font.center, centerX, padding 10, width fill, active isActive, Background.color buttonColor ] <|
+    el [ Font.center, centerX, padding 10, width fill, active isActive, attrWhen isActive (Background.color buttonColor) ] <|
         text ("hit " ++ String.fromInt (pos + 1))
 
 
@@ -484,7 +457,7 @@ editorView : Model -> Element Msg
 editorView model =
     let
         input =
-            findCurrentInput model
+            getCurrentInput model.inputs
     in
     el [ width (fill |> maximum 400), height (fill |> maximum 400), centerX, centerY, mainContent ] <|
         column [ width fill, height fill, centerX, centerY ]

@@ -54,6 +54,7 @@ function load(json) {
         onload: function(){
             song = loading;
             toElm('songLoaded');
+            toElm('pos');
 
             playPause();
         },
@@ -65,14 +66,17 @@ function load(json) {
         onpause: function() {
             isPlaying = false;
             toElm('isPlaying');
+            toElm('pos');
         },
         onend: function() {
             isPlaying = false;
             toElm('isPlaying');
+            toElm('pos');
         },
         onstop: function() {
             isPlaying = false;
             toElm('isPlaying');
+            toElm('pos');
         },
         onseek: function() {
             toElm('pos');

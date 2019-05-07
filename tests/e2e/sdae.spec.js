@@ -56,6 +56,9 @@ context('SDAE', () => {
 		})
 
 		it('can go to the beginning of the song', () => {
+			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+			cy.contains('⏸').click()
+
 			cy.contains('⏮').click()
 			cy.contains('⏯')
 			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
@@ -146,10 +149,11 @@ context('SDAE', () => {
 	describe('hit editor', () => {
 		beforeEach(() => {
 			cy.loadSong()
-			cy.contains('⏸').click()
 		})
 
 		it('can edit hits using buttons', () => {
+			cy.contains('⏸').click()
+
 			cy.get('main').contains('f').parent().click().should('have.prop', 'checked', true)
 			cy.get('main').contains('d').parent().click().should('have.prop', 'checked', true)
 			cy.get('main').contains('s').parent().click().should('have.prop', 'checked', true)
@@ -166,6 +170,8 @@ context('SDAE', () => {
 		})
 
 		it('can edit hits using keyboard', () => {
+			cy.contains('⏸').click()
+
 			cy.input('KeyF')
 			cy.input('KeyD')
 			cy.input('KeyS')
@@ -196,11 +202,27 @@ context('SDAE', () => {
 		})
 
 		it('using the editor creates an input when none is active', () => {
+			cy.contains('⏸').click()
+
 			cy.get('aside').contains('hit 1').should('not.exist')
 
 			cy.input('KeyF')
 
 			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', true)
+		})
+
+		it('when song is playing, using the editor creates inputs over time', () => {
+			cy.get('aside').contains('hit 1').should('not.exist')
+
+			cy.input('KeyF')
+
+			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', true)
+
+			cy.wait(150)
+			cy.input('KeyF')
+
+			cy.get('aside').contains('hit 2').parent().should('have.prop', 'active', true)
+			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', false)
 		})
 	})
 })

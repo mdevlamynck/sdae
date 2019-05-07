@@ -1,7 +1,7 @@
-module Element.Utils exposing (active, checked, elWhenJust)
+module Element.Utils exposing (active, attrWhen, checked, elWhenJust)
 
 import Element exposing (..)
-import Html.Attributes exposing (property)
+import Html.Attributes exposing (class, property)
 import Json.Encode exposing (bool)
 
 
@@ -13,6 +13,15 @@ elWhenJust maybe view =
 
         Nothing ->
             none
+
+
+attrWhen : Bool -> Attribute msg -> Attribute msg
+attrWhen predicate attr =
+    if predicate then
+        attr
+
+    else
+        htmlAttribute <| class ""
 
 
 checked : Bool -> Attribute msg

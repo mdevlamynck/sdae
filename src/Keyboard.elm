@@ -1,7 +1,7 @@
 module Keyboard exposing (Commands, commandDecoder, subscriptions)
 
 import Browser.Events exposing (onKeyDown)
-import Data exposing (Hit(..))
+import Inputs exposing (Hit(..))
 import Json.Decode exposing (Decoder, andThen, bool, fail, field, oneOf, string, succeed)
 import Json.Decode.Pipeline exposing (custom, required)
 

@@ -1,7 +1,4 @@
-module Data exposing (FileResource(..), Game, Hit(..), Input, Song, emptyInput)
-
-import EverySet exposing (EverySet)
-import File exposing (File)
+module Data exposing (FileResource(..), Game, Song)
 
 
 type FileResource f
@@ -17,22 +14,3 @@ type alias Song =
 
 type alias Game =
     {}
-
-
-type alias Input =
-    { hits : EverySet Hit
-    }
-
-
-emptyInput : Input
-emptyInput =
-    { hits = EverySet.empty }
-
-
-type Hit
-    = LeftUp
-    | LeftMiddle
-    | LeftDown
-    | RightUp
-    | RightMiddle
-    | RightDown
