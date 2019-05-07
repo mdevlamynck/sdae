@@ -21,5 +21,5 @@ script:
   - npm run test-format
   - npm run test
   - npm run serve &
-  - npm run e2e
+  - npm run ci-e2e
   - kill $(jobs -p) || true

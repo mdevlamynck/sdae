@@ -1,6 +1,6 @@
 {
-	"integrationFolder": "tests/e2e",
-	"fixturesFolder": "tests/fixtures",
-	"video": false,
-	"baseUrl": "http://localhost:1234"
+  "integrationFolder": "tests/e2e",
+  "fixturesFolder": "tests/fixtures",
+  "baseUrl": "http://localhost:1234",
+  "projectId": "n9g4or"
 }
