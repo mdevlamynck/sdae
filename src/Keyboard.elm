@@ -1,4 +1,4 @@
-module Keyboard exposing (Commands, commandDecoder, subscriptions)
+module Keyboard exposing (Commands, Mode(..), commandDecoder, subscriptions)
 
 import Browser.Events exposing (onKeyDown)
 import Inputs exposing (Hit(..))
@@ -6,23 +6,34 @@ import Json.Decode exposing (Decoder, andThen, bool, fail, field, oneOf, string,
 import Json.Decode.Pipeline exposing (custom, required)
 
 
+type Mode
+    = NormalMode
+    | PropertyMode
+
+
 type alias Commands msg =
-    { playPause : msg
+    { -- Normal Mode
+      playPause : msg
     , backward : msg
     , forward : msg
     , toggleHit : Hit -> msg
     , previousInput : msg
     , nextInput : msg
+    , deleteCurrentInput : msg
+    , propertyMode : msg
+
+    -- Property Mode
     , openSong : msg
     , openGame : msg
     , newGame : msg
     , exportGame : msg
+    , normalMode : msg
     }
 
 
-subscriptions : Commands msg -> Sub msg
-subscriptions commands =
-    onKeyDown (commandDecoder commands)
+subscriptions : Mode -> Commands msg -> Sub msg
+subscriptions mode commands =
+    onKeyDown (commandDecoder mode commands)
 
 
 type alias Input =
@@ -40,8 +51,8 @@ type Modifier
     | None
 
 
-commandDecoder : Commands msg -> Decoder msg
-commandDecoder commands =
+commandDecoder : Mode -> Commands msg -> Decoder msg
+commandDecoder mode commands =
     let
         isTrue value =
             bool
@@ -68,52 +79,68 @@ commandDecoder commands =
             )
         |> andThen
             (\{ code, key, modifier } ->
-                case ( code, key, modifier ) of
-                    ( "Space", _, None ) ->
-                        succeed commands.playPause
+                case mode of
+                    NormalMode ->
+                        case ( code, key, modifier ) of
+                            ( "Space", _, None ) ->
+                                succeed commands.playPause
 
-                    ( "KeyF", _, None ) ->
-                        succeed <| commands.toggleHit LeftUp
+                            ( "KeyF", _, None ) ->
+                                succeed <| commands.toggleHit LeftUp
 
-                    ( "KeyD", _, None ) ->
-                        succeed <| commands.toggleHit LeftMiddle
+                            ( "KeyD", _, None ) ->
+                                succeed <| commands.toggleHit LeftMiddle
 
-                    ( "KeyS", _, None ) ->
-                        succeed <| commands.toggleHit LeftDown
+                            ( "KeyS", _, None ) ->
+                                succeed <| commands.toggleHit LeftDown
 
-                    ( "KeyJ", _, None ) ->
-                        succeed <| commands.toggleHit RightUp
+                            ( "KeyJ", _, None ) ->
+                                succeed <| commands.toggleHit RightUp
 
-                    ( "KeyK", _, None ) ->
-                        succeed <| commands.toggleHit RightMiddle
+                            ( "KeyK", _, None ) ->
+                                succeed <| commands.toggleHit RightMiddle
 
-                    ( "KeyL", _, None ) ->
-                        succeed <| commands.toggleHit RightDown
+                            ( "KeyL", _, None ) ->
+                                succeed <| commands.toggleHit RightDown
 
-                    ( "ArrowLeft", _, None ) ->
-                        succeed <| commands.backward
+                            ( "ArrowLeft", _, None ) ->
+                                succeed <| commands.backward
 
-                    ( "ArrowRight", _, None ) ->
-                        succeed <| commands.forward
+                            ( "ArrowRight", _, None ) ->
+                                succeed <| commands.forward
 
-                    ( "ArrowUp", _, None ) ->
-                        succeed <| commands.previousInput
+                            ( "ArrowUp", _, None ) ->
+                                succeed <| commands.previousInput
 
-                    ( "ArrowDown", _, None ) ->
-                        succeed <| commands.nextInput
+                            ( "ArrowDown", _, None ) ->
+                                succeed <| commands.nextInput
 
-                    ( _, "o", None ) ->
-                        succeed <| commands.openSong
+                            ( _, "x", None ) ->
+                                succeed <| commands.deleteCurrentInput
 
-                    ( _, "g", None ) ->
-                        succeed <| commands.openGame
+                            ( "p", _, None ) ->
+                                succeed <| commands.propertyMode
 
-                    ( _, "n", None ) ->
-                        succeed <| commands.newGame
+                            _ ->
+                                fail ""
 
-                    ( _, "x", None ) ->
-                        succeed <| commands.exportGame
+                    PropertyMode ->
+                        case ( code, key, modifier ) of
+                            ( _, "o", None ) ->
+                                succeed <| commands.openSong
 
-                    _ ->
-                        fail ""
+                            ( _, "g", None ) ->
+                                succeed <| commands.openGame
+
+                            ( _, "n", None ) ->
+                                succeed <| commands.newGame
+
+                            ( _, "x", None ) ->
+                                succeed <| commands.exportGame
+
+                            ( "Esc", _, None ) ->
+                                succeed <| commands.normalMode
+
+                            _ ->
+                                fail ""
             )

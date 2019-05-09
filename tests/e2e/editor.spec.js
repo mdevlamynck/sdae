@@ -192,5 +192,14 @@ context('editor', () => {
 			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
 			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
 		})
+
+		it('x deletes the current input', () => {
+			cy.get('[data-cy="hit 2"]').click()
+			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
+
+			cy.input('x')
+
+			cy.get('[data-cy="hit 2"]').should('not.exist')
+		})
 	})
 })

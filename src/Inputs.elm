@@ -1,4 +1,4 @@
-module Inputs exposing (Hit(..), Input, Inputs, empty, getCurrentInput, getInputs, getNextInputPos, getPreviousInputPos, mapCurrentInputHits, removeInput, toggleMember, updatePos)
+module Inputs exposing (Hit(..), Input, Inputs, empty, getCurrentInput, getInputs, getNextInputPos, getPreviousInputPos, mapCurrentInputHits, removeCurrentInput, removeInput, toggleMember, updatePos)
 
 import EverySet exposing (EverySet)
 
@@ -92,6 +92,16 @@ removeInput input (Inputs inputs) =
                 else
                     inputs.currentInput
         }
+
+
+removeCurrentInput : Inputs -> Inputs
+removeCurrentInput ((Inputs model) as inputs) =
+    case model.currentInput of
+        Just input ->
+            removeInput input inputs
+
+        _ ->
+            inputs
 
 
 getPreviousInputPos : Inputs -> Maybe Float

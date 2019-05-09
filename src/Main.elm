@@ -18,7 +18,7 @@ import File.Download as Download
 import File.Select as Select
 import Html exposing (Html)
 import Inputs exposing (..)
-import Keyboard
+import Keyboard exposing (Mode(..))
 import Ports
 import Round exposing (round)
 import Task
@@ -52,8 +52,11 @@ type alias Flags =
 
 
 type alias Model =
-    { -- Player
-      isPlaying : Bool
+    { -- Keyboard
+      mode : Mode
+
+    -- Player
+    , isPlaying : Bool
     , pos : Float
     , duration : Float
 
@@ -70,6 +73,8 @@ type alias Model =
 
 type Msg
     = MsgNoOp
+      -- Input
+    | MsgSetMode Mode
       -- Commands
     | MsgIsPlaying Bool
     | MsgSongLoaded Float
@@ -87,6 +92,7 @@ type Msg
     | MsgToggleHit Hit
     | MsgFocusInput Input
     | MsgRemoveInput Input
+    | MsgRemoveCurrentInput
     | MsgPreviousInput
     | MsgNextInput
       -- Song
@@ -112,7 +118,8 @@ type Msg
 
 init : Flags -> ( Model, Cmd Msg )
 init _ =
-    ( { isPlaying = False
+    ( { mode = NormalMode
+      , isPlaying = False
       , pos = 0
       , duration = 0
       , inputs = empty
@@ -128,6 +135,11 @@ update msg model =
     case msg of
         MsgNoOp ->
             ( model
+            , Cmd.none
+            )
+
+        MsgSetMode mode ->
+            ( { model | mode = mode }
             , Cmd.none
             )
 
@@ -192,6 +204,11 @@ update msg model =
 
         MsgRemoveHit hit ->
             ( { model | inputs = model.inputs |> mapCurrentInputHits (EverySet.remove hit) }
+            , Cmd.none
+            )
+
+        MsgRemoveCurrentInput ->
+            ( { model | inputs = model.inputs |> removeCurrentInput }
             , Cmd.none
             )
 
@@ -324,17 +341,20 @@ subscriptions model =
             , songLoaded = MsgSongLoaded
             , pos = MsgPos
             }
-        , Keyboard.subscriptions
+        , Keyboard.subscriptions model.mode
             { playPause = MsgPlayPause
             , backward = MsgBackward
             , forward = MsgForward
             , toggleHit = MsgToggleHit
             , previousInput = MsgPreviousInput
             , nextInput = MsgNextInput
+            , deleteCurrentInput = MsgRemoveCurrentInput
+            , propertyMode = MsgSetMode PropertyMode
             , openSong = openSong
             , openGame = openGame
             , newGame = MsgNewGame
             , exportGame = MsgExportGame
+            , normalMode = MsgSetMode NormalMode
             }
         , Ports.cypressSubscriptions
             { invalidCommand = MsgNoOp
@@ -372,13 +392,16 @@ view model =
 
 mainView : Model -> Element Msg
 mainView model =
-    row [ width fill, height fill, spacing 40, padding 20 ]
-        [ inputListView model
-        , column [ width fill, height fill, spacing 5 ]
-            [ playerView model
-            , editorView model
+    column [ width fill, height fill, padding 20, spacing 20 ]
+        [ row [ width fill, height fill, spacing 40 ]
+            [ inputListView model
+            , column [ width fill, height fill, spacing 5 ]
+                [ playerView model
+                , editorView model
+                ]
+            , propertiesView model
             ]
-        , propertiesView model
+        , statusBar model
         ]
 
 
@@ -658,3 +681,16 @@ gamePropertiesView resource =
                 , el [ centerX ] <|
                     text "Failed to load"
                 ]
+
+
+statusBar : Model -> Element Msg
+statusBar model =
+    row [ width fill ]
+        [ text <|
+            case model.mode of
+                NormalMode ->
+                    "Normal"
+
+                PropertyMode ->
+                    "Property"
+        ]
