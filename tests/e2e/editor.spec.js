@@ -1,3 +1,31 @@
+const withInputsStartingAtZero = () => {
+	cy.contains('⏮').click()
+
+	cy.input('KeyF')
+
+	cy.contains('⏯').click()
+	cy.wait(150)
+	cy.contains('⏸').click()
+
+	cy.input('KeyD')
+}
+
+const withInputs = () => {
+    cy.contains('⏮').click()
+
+    cy.contains('⏯').click()
+    cy.wait(50)
+    cy.contains('⏸').click()
+
+    cy.input('KeyF')
+
+    cy.contains('⏯').click()
+    cy.wait(150)
+    cy.contains('⏸').click()
+
+    cy.input('KeyD')
+}
+
 context('editor', () => {
 	beforeEach(() => {
 		cy.visit('/')
@@ -26,31 +54,29 @@ context('editor', () => {
 		cy.contains('⏸').click()
 
 		cy.input('KeyF')
+        cy.get('main').contains('f').parent().should('have.prop', 'checked', true)
 		cy.input('KeyD')
+        cy.get('main').contains('d').parent().should('have.prop', 'checked', true)
 		cy.input('KeyS')
+        cy.get('main').contains('s').parent().should('have.prop', 'checked', true)
 		cy.input('KeyJ')
+        cy.get('main').contains('j').parent().should('have.prop', 'checked', true)
 		cy.input('KeyK')
+        cy.get('main').contains('k').parent().should('have.prop', 'checked', true)
 		cy.input('KeyL')
-
-		cy.get('main').contains('f').parent().should('have.prop', 'checked', true)
-		cy.get('main').contains('d').parent().should('have.prop', 'checked', true)
-		cy.get('main').contains('s').parent().should('have.prop', 'checked', true)
-		cy.get('main').contains('j').parent().should('have.prop', 'checked', true)
-		cy.get('main').contains('k').parent().should('have.prop', 'checked', true)
-		cy.get('main').contains('l').parent().should('have.prop', 'checked', true)
+        cy.get('main').contains('l').parent().should('have.prop', 'checked', true)
 
 		cy.input('KeyF')
+        cy.get('main').contains('f').parent().should('have.prop', 'checked', false)
 		cy.input('KeyD')
+        cy.get('main').contains('d').parent().should('have.prop', 'checked', false)
 		cy.input('KeyS')
+        cy.get('main').contains('s').parent().should('have.prop', 'checked', false)
 		cy.input('KeyJ')
+        cy.get('main').contains('j').parent().should('have.prop', 'checked', false)
 		cy.input('KeyK')
+        cy.get('main').contains('k').parent().should('have.prop', 'checked', false)
 		cy.input('KeyL')
-
-		cy.get('main').contains('f').parent().should('have.prop', 'checked', false)
-		cy.get('main').contains('d').parent().should('have.prop', 'checked', false)
-		cy.get('main').contains('s').parent().should('have.prop', 'checked', false)
-		cy.get('main').contains('j').parent().should('have.prop', 'checked', false)
-		cy.get('main').contains('k').parent().should('have.prop', 'checked', false)
 		cy.get('main').contains('l').parent().should('have.prop', 'checked', false)
 	})
 
@@ -81,6 +107,8 @@ context('editor', () => {
 	})
 
 	it('adding a hit then removing it ends up with an empty input', () => {
+		cy.contains('⏮').click()
+
 		cy.get('[data-cy="hit 1"]').should('not.exist')
 
 		cy.input('KeyF')
@@ -90,116 +118,185 @@ context('editor', () => {
 		cy.get('[data-cy="hit 1"]').contains('(empty)')
 	})
 
-	it('clicking on input seeks to the input pos', () => {
-		cy.contains('⏮').click()
+    it('clicking on input seeks to the input pos', () => {
+        withInputsStartingAtZero()
 
-		cy.input('KeyF')
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+        cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
 
-		cy.contains('⏯').click()
-		cy.wait(200)
-		cy.contains('⏸').click()
+        cy.get('[data-cy="hit 1"]').click()
 
-		cy.input('KeyD')
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+        cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+    })
 
-		cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
-		cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
-		cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
+    it('clicking the cross beside it deletes the input', () => {
+        withInputs()
 
-		cy.get('[data-cy="hit 1"]').click()
+        cy.get('[data-cy="hit 1"]')
+        cy.get('[data-cy="hit 2"]')
 
-		cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
-		cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
-		cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
-	})
+        cy.get('[data-cy="hit 2"]').contains('❌').click()
 
-	describe('with inputs', () => {
-		beforeEach(() => {
-			cy.contains('⏮').click()
+        cy.get('[data-cy="hit 1"]')
+        cy.get('[data-cy="hit 2"]').should('not.exist')
+    })
 
-			cy.contains('⏯').click()
-			cy.wait(100)
-			cy.contains('⏸').click()
+    it('up seeks to the previous input', () => {
+        withInputs()
 
-			cy.input('KeyF')
+        cy.contains('⏯').click()
+        cy.wait(150)
+        cy.contains('⏸').click()
 
-			cy.contains('⏯').click()
-			cy.wait(200)
-			cy.contains('⏸').click()
+        cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
 
-			cy.input('KeyD')
-		})
+        cy.input('ArrowUp')
 
-		it('clicking the cross beside it deletes the input', () => {
-			cy.get('[data-cy="hit 1"]')
-			cy.get('[data-cy="hit 2"]')
+        cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
 
-			cy.get('[data-cy="hit 2"]').contains('❌').click()
+        cy.input('ArrowUp')
 
-			cy.get('[data-cy="hit 1"]')
-			cy.get('[data-cy="hit 2"]').should('not.exist')
-		})
+        cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
 
-		it('up seeks to the previous input', () => {
-			cy.contains('⏯').click()
-			cy.wait(300)
-			cy.contains('⏸').click()
+        cy.input('ArrowUp')
 
-			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
-			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
-			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+        cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+    })
 
-			cy.input('ArrowUp')
+    it('down seeks to the next input', () => {
+        withInputs()
+        cy.contains('⏮').click()
 
-			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
-			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
-			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+        cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
 
-			cy.input('ArrowUp')
+        cy.input('ArrowDown')
 
-			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
-			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
-			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+        cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
 
-			cy.input('ArrowUp')
+        cy.input('ArrowDown')
 
-			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
-			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
-			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
-		})
+        cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
 
-		it('down seeks to the next input', () => {
-			cy.contains('⏮').click()
+        cy.input('ArrowDown')
 
-			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
-			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
-			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+        cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+    })
 
-			cy.input('ArrowDown')
+    it('x deletes the current input', () => {
+        withInputs()
 
-			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
-			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
-			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+        cy.get('[data-cy="hit 2"]').click()
+        cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
 
-			cy.input('ArrowDown')
+        cy.input('x')
 
-			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
-			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
-			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+        cy.get('[data-cy="hit 2"]').should('not.exist')
+    })
 
-			cy.input('ArrowDown')
+    it('z undoes the last change, y redoes the last undo', () => {
+        withInputsStartingAtZero()
 
-			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
-			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
-			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
-		})
+        cy.get('[data-cy="hit 1"]')
+        cy.get('[data-cy="hit 2"]')
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
 
-		it('x deletes the current input', () => {
-			cy.get('[data-cy="hit 2"]').click()
-			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
+        cy.input('z')
 
-			cy.input('x')
+        cy.get('[data-cy="hit 1"]')
+        cy.get('[data-cy="hit 2"]').should('not.exist')
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
 
-			cy.get('[data-cy="hit 2"]').should('not.exist')
-		})
-	})
+        cy.input('z')
+
+        cy.get('[data-cy="hit 1"]').should('not.exist')
+        cy.get('[data-cy="hit 2"]').should('not.exist')
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+
+        cy.input('y')
+
+        cy.get('[data-cy="hit 1"]')
+        cy.get('[data-cy="hit 2"]').should('not.exist')
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+
+        cy.input('y')
+
+        cy.get('[data-cy="hit 1"]')
+        cy.get('[data-cy="hit 2"]')
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+    })
+
+    it('making changes after undo loses the history (prevents redo)', () => {
+        withInputsStartingAtZero()
+
+        cy.input('z')
+        cy.input('z')
+
+        cy.get('[data-cy="hit 1"]').should('not.exist')
+        cy.get('[data-cy="hit 2"]').should('not.exist')
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+
+        cy.input('f')
+        cy.input('y')
+
+        cy.get('[data-cy="hit 1"]').should('not.exist')
+        cy.get('[data-cy="hit 2"]').should('not.exist')
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+    })
+
+    it('an alternate history can still be traversed', () => {
+        withInputsStartingAtZero()
+
+        cy.input('z')
+        cy.input('KeyD')
+        cy.input('z')
+        cy.input('z')
+
+        cy.get('[data-cy="hit 1"]').should('not.exist')
+        cy.get('main').contains('f').parent().should('have.prop', 'checked', false)
+        cy.get('main').contains('d').parent().should('have.prop', 'checked', false)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+
+        cy.input('y')
+
+        cy.get('[data-cy="hit 1"]')
+        cy.get('main').contains('f').parent().should('have.prop', 'checked', true)
+        cy.get('main').contains('d').parent().should('have.prop', 'checked', false)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+
+        cy.input('y')
+
+        cy.get('[data-cy="hit 1"]')
+        cy.get('main').contains('f').parent().should('have.prop', 'checked', true)
+        cy.get('main').contains('d').parent().should('have.prop', 'checked', true)
+        cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+    })
+
+    it('going beyond history is noop', () => {
+        withInputsStartingAtZero()
+
+        cy.input('z')
+        cy.input('z')
+        cy.input('z')
+
+        cy.get('[data-cy="hit 1"]').should('not.exist')
+    })
 })

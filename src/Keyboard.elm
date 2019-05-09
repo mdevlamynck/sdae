@@ -20,6 +20,8 @@ type alias Commands msg =
     , previousInput : msg
     , nextInput : msg
     , deleteCurrentInput : msg
+    , undo : msg
+    , redo : msg
     , propertyMode : msg
 
     -- Property Mode
@@ -118,7 +120,13 @@ commandDecoder mode commands =
                             ( _, "x", None ) ->
                                 succeed <| commands.deleteCurrentInput
 
-                            ( "p", _, None ) ->
+                            ( _, "z", None ) ->
+                                succeed <| commands.undo
+
+                            ( _, "y", None ) ->
+                                succeed <| commands.redo
+
+                            ( _, "p", None ) ->
                                 succeed <| commands.propertyMode
 
                             _ ->

@@ -1,4 +1,4 @@
-module Inputs exposing (Hit(..), Input, Inputs, empty, getCurrentInput, getInputs, getNextInputPos, getPreviousInputPos, mapCurrentInputHits, removeCurrentInput, removeInput, toggleMember, updatePos)
+module Inputs exposing (Hit(..), Input, Inputs, empty, getCurrentInput, getInputs, getNextInputPos, getPos, getPreviousInputPos, mapCurrentInputHits, removeCurrentInput, removeInput, toggleMember, updatePos)
 
 import EverySet exposing (EverySet)
 
@@ -102,6 +102,11 @@ removeCurrentInput ((Inputs model) as inputs) =
 
         _ ->
             inputs
+
+
+getPos : Inputs -> Float
+getPos (Inputs inputs) =
+    inputs.pos
 
 
 getPreviousInputPos : Inputs -> Maybe Float

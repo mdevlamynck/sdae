@@ -11,11 +11,12 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
 import Element.Region exposing (aside, mainContent, navigation)
-import Element.Utils exposing (active, attrWhen, checked, elWhenJust, tag)
+import Element.Utils exposing (active, attrWhen, checked, tag)
 import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
+import History exposing (History)
 import Html exposing (Html)
 import Inputs exposing (..)
 import Keyboard exposing (Mode(..))
@@ -57,11 +58,11 @@ type alias Model =
 
     -- Player
     , isPlaying : Bool
-    , pos : Float
     , duration : Float
 
     -- Editor
     , inputs : Inputs
+    , history : History Inputs
 
     -- Song
     , song : FileResource Song
@@ -95,6 +96,8 @@ type Msg
     | MsgRemoveCurrentInput
     | MsgPreviousInput
     | MsgNextInput
+    | MsgUndo
+    | MsgRedo
       -- Song
     | MsgSelectSong
     | MsgUnloadSong
@@ -120,9 +123,9 @@ init : Flags -> ( Model, Cmd Msg )
 init _ =
     ( { mode = NormalMode
       , isPlaying = False
-      , pos = 0
       , duration = 0
       , inputs = empty
+      , history = History.empty
       , song = None
       , game = None
       }
@@ -163,7 +166,7 @@ update msg model =
             )
 
         MsgPos pos ->
-            ( { model | pos = pos, inputs = updatePos pos model.inputs }
+            ( { model | inputs = updatePos pos model.inputs }
             , Cmd.none
             )
 
@@ -198,33 +201,33 @@ update msg model =
             )
 
         MsgAddHit hit ->
-            ( { model | inputs = model.inputs |> mapCurrentInputHits (EverySet.insert hit) }
+            ( model |> withHistory (mapCurrentInputHits (EverySet.insert hit))
             , Cmd.none
             )
 
         MsgRemoveHit hit ->
-            ( { model | inputs = model.inputs |> mapCurrentInputHits (EverySet.remove hit) }
+            ( model |> withHistory (mapCurrentInputHits (EverySet.remove hit))
+            , Cmd.none
+            )
+
+        MsgRemoveInput input ->
+            ( model |> withHistory (removeInput input)
             , Cmd.none
             )
 
         MsgRemoveCurrentInput ->
-            ( { model | inputs = model.inputs |> removeCurrentInput }
+            ( model |> withHistory removeCurrentInput
             , Cmd.none
             )
 
         MsgToggleHit hit ->
-            ( { model | inputs = model.inputs |> mapCurrentInputHits (toggleMember hit) }
+            ( model |> withHistory (mapCurrentInputHits (toggleMember hit))
             , Cmd.none
             )
 
         MsgFocusInput input ->
             ( model
             , Ports.seek input.pos
-            )
-
-        MsgRemoveInput input ->
-            ( { model | inputs = model.inputs |> removeInput input }
-            , Cmd.none
             )
 
         MsgPreviousInput ->
@@ -236,6 +239,12 @@ update msg model =
             ( model
             , Ports.seek (getNextInputPos model.inputs |> Maybe.withDefault model.duration)
             )
+
+        MsgUndo ->
+            model |> applyMoveInHistory (History.undo model.history)
+
+        MsgRedo ->
+            model |> applyMoveInHistory (History.redo model.history)
 
         MsgSelectSong ->
             ( model
@@ -349,6 +358,8 @@ subscriptions model =
             , previousInput = MsgPreviousInput
             , nextInput = MsgNextInput
             , deleteCurrentInput = MsgRemoveCurrentInput
+            , undo = MsgUndo
+            , redo = MsgRedo
             , propertyMode = MsgSetMode PropertyMode
             , openSong = openSong
             , openGame = openGame
@@ -362,6 +373,29 @@ subscriptions model =
             , loadGame = MsgCypressLoadGame
             }
         ]
+
+
+withHistory : (Inputs -> Inputs) -> Model -> Model
+withHistory function model =
+    let
+        inputs =
+            function model.inputs
+    in
+    { model
+        | inputs = inputs
+        , history = History.record inputs model.history
+    }
+
+
+applyMoveInHistory : ( History Inputs, Maybe Inputs ) -> Model -> ( Model, Cmd Msg )
+applyMoveInHistory ( history, maybeInputs ) model =
+    let
+        inputs =
+            maybeInputs |> Maybe.withDefault empty
+    in
+    ( { model | inputs = inputs, history = history }
+    , Ports.seek (getPos inputs)
+    )
 
 
 
@@ -506,7 +540,7 @@ progressBarView model =
             , label = labelHidden "progress"
             , min = 0
             , max = model.duration
-            , value = model.pos
+            , value = getPos model.inputs
             , thumb =
                 thumb
                     [ Element.width (Element.px 20)
