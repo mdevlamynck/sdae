@@ -1,4 +1,4 @@
-module Inputs exposing (Hit(..), Input, Inputs, empty, getCurrentInput, getInputs, mapCurrentInputHits, toggleMember, updatePos)
+module Inputs exposing (Hit(..), Input, Inputs, empty, getCurrentInput, getInputs, getNextInputPos, getPreviousInputPos, mapCurrentInputHits, removeInput, toggleMember, updatePos)
 
 import EverySet exposing (EverySet)
 
@@ -78,6 +78,37 @@ mapCurrentInputHits function (Inputs inputs) =
                     currentInput :: inputs.inputs
     in
     Inputs { inputs | inputs = List.sortBy .pos updatedInputs, currentInput = Just currentInput }
+
+
+removeInput : Input -> Inputs -> Inputs
+removeInput input (Inputs inputs) =
+    Inputs
+        { inputs
+            | inputs = List.filter ((/=) input) inputs.inputs
+            , currentInput =
+                if inputs.currentInput == Just input then
+                    Nothing
+
+                else
+                    inputs.currentInput
+        }
+
+
+getPreviousInputPos : Inputs -> Maybe Float
+getPreviousInputPos (Inputs inputs) =
+    inputs.inputs
+        |> List.filter (\i -> i.pos < inputs.pos && Just i /= inputs.currentInput)
+        |> List.reverse
+        |> List.head
+        |> Maybe.map .pos
+
+
+getNextInputPos : Inputs -> Maybe Float
+getNextInputPos (Inputs inputs) =
+    inputs.inputs
+        |> List.filter (\i -> i.pos > inputs.pos && Just i /= inputs.currentInput)
+        |> List.head
+        |> Maybe.map .pos
 
 
 mapInputHits : (EverySet Hit -> EverySet Hit) -> Input -> Input

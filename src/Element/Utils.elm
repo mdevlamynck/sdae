@@ -1,7 +1,7 @@
-module Element.Utils exposing (active, attrWhen, checked, elWhenJust)
+module Element.Utils exposing (active, attrWhen, checked, elWhenJust, tag)
 
 import Element exposing (..)
-import Html.Attributes exposing (class, property)
+import Html.Attributes exposing (attribute, class, property)
 import Json.Encode exposing (bool)
 
 
@@ -22,6 +22,11 @@ attrWhen predicate attr =
 
     else
         htmlAttribute <| class ""
+
+
+tag : String -> Attribute msg
+tag t =
+    htmlAttribute <| attribute "data-cy" t
 
 
 checked : Bool -> Attribute msg

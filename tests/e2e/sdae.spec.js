@@ -204,25 +204,37 @@ context('SDAE', () => {
 		it('using the editor creates an input when none is active', () => {
 			cy.contains('⏸').click()
 
-			cy.get('aside').contains('hit 1').should('not.exist')
+			cy.get('[data-cy="hit 1"]').should('not.exist')
 
 			cy.input('KeyF')
 
-			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', true)
+			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
 		})
 
 		it('when song is playing, using the editor creates inputs over time', () => {
-			cy.get('aside').contains('hit 1').should('not.exist')
+			cy.contains('⏮').click()
+			cy.get('[data-cy="hit 1"]').should('not.exist')
 
 			cy.input('KeyF')
+			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
 
-			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', true)
+			cy.contains('⏯').click()
+			cy.wait(200)
+			cy.contains('⏸').click()
 
-			cy.wait(150)
 			cy.input('KeyF')
+			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
+			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+		})
 
-			cy.get('aside').contains('hit 2').parent().should('have.prop', 'active', true)
-			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', false)
+		it('adding a hit then removing it ends up with an empty input', () => {
+			cy.get('[data-cy="hit 1"]').should('not.exist')
+
+			cy.input('KeyF')
+			cy.get('[data-cy="hit 1"]').contains('(empty)').should('not.exist')
+
+			cy.input('KeyF')
+			cy.get('[data-cy="hit 1"]').contains('(empty)')
 		})
 
 		it('clicking on input seeks to the input pos', () => {
@@ -231,20 +243,102 @@ context('SDAE', () => {
 			cy.input('KeyF')
 
 			cy.contains('⏯').click()
-			cy.wait(150)
+			cy.wait(200)
 			cy.contains('⏸').click()
 
 			cy.input('KeyD')
 
 			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
-			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', false)
-			cy.get('aside').contains('hit 2').parent().should('have.prop', 'active', true)
+			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
 
-			cy.get('aside').contains('hit 1').click()
+			cy.get('[data-cy="hit 1"]').click()
 
 			cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
-			cy.get('aside').contains('hit 1').parent().should('have.prop', 'active', true)
-			cy.get('aside').contains('hit 2').parent().should('have.prop', 'active', false)
+			cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
+			cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+		})
+
+		describe('with inputs', () => {
+			beforeEach(() => {
+				cy.contains('⏮').click()
+
+				cy.contains('⏯').click()
+				cy.wait(100)
+				cy.contains('⏸').click()
+
+				cy.input('KeyF')
+
+				cy.contains('⏯').click()
+				cy.wait(200)
+				cy.contains('⏸').click()
+
+				cy.input('KeyD')
+			})
+
+			it('clicking the cross beside it deletes the input', () => {
+				cy.get('[data-cy="hit 1"]')
+				cy.get('[data-cy="hit 2"]')
+
+				cy.get('[data-cy="hit 2"]').contains('❌').click()
+
+				cy.get('[data-cy="hit 1"]')
+				cy.get('[data-cy="hit 2"]').should('not.exist')
+			})
+
+			it('up seeks to the previous input', () => {
+				cy.contains('⏯').click()
+				cy.wait(300)
+				cy.contains('⏸').click()
+
+				cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+				cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+				cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+
+				cy.input('ArrowUp')
+
+				cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+				cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
+				cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+
+				cy.input('ArrowUp')
+
+				cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
+				cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+				cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+
+				cy.input('ArrowUp')
+
+				cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+				cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+				cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+			})
+
+			it('down seeks to the next input', () => {
+				cy.contains('⏮').click()
+
+				cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+				cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+				cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.eq', '0')
+
+				cy.input('ArrowDown')
+
+				cy.get('[data-cy="hit 1"]').should('have.prop', 'active', true)
+				cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+				cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+
+				cy.input('ArrowDown')
+
+				cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+				cy.get('[data-cy="hit 2"]').should('have.prop', 'active', true)
+				cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+
+				cy.input('ArrowDown')
+
+				cy.get('[data-cy="hit 1"]').should('have.prop', 'active', false)
+				cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
+				cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.gt', 0)
+			})
 		})
 	})
 })

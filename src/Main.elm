@@ -11,7 +11,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
 import Element.Region exposing (aside, mainContent, navigation)
-import Element.Utils exposing (active, attrWhen, checked, elWhenJust)
+import Element.Utils exposing (active, attrWhen, checked, elWhenJust, tag)
 import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Download as Download
@@ -86,6 +86,9 @@ type Msg
     | MsgRemoveHit Hit
     | MsgToggleHit Hit
     | MsgFocusInput Input
+    | MsgRemoveInput Input
+    | MsgPreviousInput
+    | MsgNextInput
       -- Song
     | MsgSelectSong
     | MsgUnloadSong
@@ -202,6 +205,21 @@ update msg model =
             , Ports.seek input.pos
             )
 
+        MsgRemoveInput input ->
+            ( { model | inputs = model.inputs |> removeInput input }
+            , Cmd.none
+            )
+
+        MsgPreviousInput ->
+            ( model
+            , Ports.seek (getPreviousInputPos model.inputs |> Maybe.withDefault 0)
+            )
+
+        MsgNextInput ->
+            ( model
+            , Ports.seek (getNextInputPos model.inputs |> Maybe.withDefault model.duration)
+            )
+
         MsgSelectSong ->
             ( model
             , Select.file [] MsgSongSelected
@@ -311,8 +329,8 @@ subscriptions model =
             , backward = MsgBackward
             , forward = MsgForward
             , toggleHit = MsgToggleHit
-            , previousHit = MsgNoOp
-            , nextHit = MsgNoOp
+            , previousInput = MsgPreviousInput
+            , nextInput = MsgNextInput
             , openSong = openSong
             , openGame = openGame
             , newGame = MsgNewGame
@@ -376,10 +394,25 @@ inputRowView model pos input =
         isActive =
             getCurrentInput model.inputs == input
     in
-    button [ padding 10, width fill, active isActive, attrWhen isActive (Background.color buttonColor) ]
-        { onPress = Just (MsgFocusInput input)
-        , label = text ("hit " ++ String.fromInt (pos + 1) ++ " - " ++ round 2 input.pos)
-        }
+    row [ width fill, padding 5, tag ("hit " ++ String.fromInt (pos + 1)), active isActive, attrWhen isActive (Background.color buttonColor) ]
+        [ button [ width fill, height fill ]
+            { onPress = Just (MsgFocusInput input)
+            , label =
+                text
+                    (round 2 input.pos
+                        ++ (if EverySet.isEmpty input.hits then
+                                " (empty)"
+
+                            else
+                                ""
+                           )
+                    )
+            }
+        , button [ alignRight, height fill ]
+            { onPress = Just (MsgRemoveInput input)
+            , label = text "❌"
+            }
+        ]
 
 
 playerView : Model -> Element Msg

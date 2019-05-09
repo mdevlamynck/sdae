@@ -11,8 +11,8 @@ type alias Commands msg =
     , backward : msg
     , forward : msg
     , toggleHit : Hit -> msg
-    , previousHit : msg
-    , nextHit : msg
+    , previousInput : msg
+    , nextInput : msg
     , openSong : msg
     , openGame : msg
     , newGame : msg
@@ -97,10 +97,10 @@ commandDecoder commands =
                         succeed <| commands.forward
 
                     ( "ArrowUp", _, None ) ->
-                        succeed <| commands.previousHit
+                        succeed <| commands.previousInput
 
                     ( "ArrowDown", _, None ) ->
-                        succeed <| commands.nextHit
+                        succeed <| commands.nextInput
 
                     ( _, "o", None ) ->
                         succeed <| commands.openSong
