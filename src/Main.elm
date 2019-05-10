@@ -8,10 +8,11 @@ import Data exposing (FileResource(..), Game, Song)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Events exposing (onMouseEnter, onMouseLeave)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
 import Element.Region exposing (aside, mainContent, navigation)
-import Element.Utils exposing (active, attrWhen, checked, tag)
+import Element.Utils exposing (active, attrWhen, checked, elWhen, tag)
 import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Download as Download
@@ -63,6 +64,7 @@ type alias Model =
     -- Editor
     , inputs : Inputs
     , history : History Inputs
+    , hoveredInput : Maybe Input
 
     -- Song
     , song : FileResource Song
@@ -74,7 +76,7 @@ type alias Model =
 
 type Msg
     = MsgNoOp
-      -- Input
+      -- Keyboard
     | MsgSetMode Mode
       -- Commands
     | MsgIsPlaying Bool
@@ -98,6 +100,8 @@ type Msg
     | MsgNextInput
     | MsgUndo
     | MsgRedo
+    | MsgOnHoverStart Input
+    | MsgOnHoverEnd
       -- Song
     | MsgSelectSong
     | MsgUnloadSong
@@ -126,6 +130,7 @@ init _ =
       , duration = 0
       , inputs = empty
       , history = History.empty
+      , hoveredInput = Nothing
       , song = None
       , game = None
       }
@@ -245,6 +250,16 @@ update msg model =
 
         MsgRedo ->
             model |> applyMoveInHistory (History.redo model.history)
+
+        MsgOnHoverStart input ->
+            ( { model | hoveredInput = Just input }
+            , Cmd.none
+            )
+
+        MsgOnHoverEnd ->
+            ( { model | hoveredInput = Nothing }
+            , Cmd.none
+            )
 
         MsgSelectSong ->
             ( model
@@ -451,7 +466,15 @@ inputRowView model pos input =
         isActive =
             getCurrentInput model.inputs == input
     in
-    row [ width fill, padding 5, tag ("hit " ++ String.fromInt (pos + 1)), active isActive, attrWhen isActive (Background.color buttonColor) ]
+    row
+        [ width fill
+        , padding 5
+        , tag ("hit " ++ String.fromInt (pos + 1))
+        , active isActive
+        , attrWhen isActive (Background.color buttonColor)
+        , onMouseEnter (MsgOnHoverStart input)
+        , onMouseLeave MsgOnHoverEnd
+        ]
         [ button [ width fill, height fill ]
             { onPress = Just (MsgFocusInput input)
             , label =
@@ -465,10 +488,11 @@ inputRowView model pos input =
                            )
                     )
             }
-        , button [ alignRight, height fill ]
-            { onPress = Just (MsgRemoveInput input)
-            , label = text "❌"
-            }
+        , elWhen (model.hoveredInput == Just input) <|
+            button [ alignRight, height fill ]
+                { onPress = Just (MsgRemoveInput input)
+                , label = text "❌"
+                }
         ]
 
 

@@ -132,12 +132,28 @@ context('editor', () => {
         cy.get('[data-cy="hit 2"]').should('have.prop', 'active', false)
     })
 
+    it('the cross beside the input only appears on hover', () => {
+        withInputs()
+
+        cy.get('[data-cy="hit 1"]').contains('❌').should('not.exist')
+        cy.get('[data-cy="hit 2"]').contains('❌').should('not.exist')
+
+        cy.get('[data-cy="hit 1"]').trigger('mouseenter')
+        cy.get('[data-cy="hit 1"]').contains('❌')
+        cy.get('[data-cy="hit 2"]').contains('❌').should('not.exist')
+
+        cy.get('[data-cy="hit 1"]').trigger('mouseleave')
+        cy.get('[data-cy="hit 1"]').contains('❌').should('not.exist')
+        cy.get('[data-cy="hit 2"]').contains('❌').should('not.exist')
+    })
+
     it('clicking the cross beside it deletes the input', () => {
         withInputs()
 
         cy.get('[data-cy="hit 1"]')
         cy.get('[data-cy="hit 2"]')
 
+        cy.get('[data-cy="hit 2"]').trigger('mouseenter')
         cy.get('[data-cy="hit 2"]').contains('❌').click()
 
         cy.get('[data-cy="hit 1"]')
