@@ -4,7 +4,11 @@ import EverySet exposing (EverySet)
 
 
 type Inputs
-    = Inputs { inputs : List Input, currentInput : Maybe Input, pos : Float }
+    = I
+        { inputs : List Input
+        , currentInput : Maybe Input
+        , pos : Float
+        }
 
 
 type alias Input =
@@ -25,23 +29,23 @@ type Hit
 
 empty : Inputs
 empty =
-    Inputs { inputs = [], currentInput = Nothing, pos = 0 }
+    I { inputs = [], currentInput = Nothing, pos = 0 }
 
 
 getInputs : Inputs -> List Input
-getInputs (Inputs inputs) =
-    inputs.inputs
+getInputs (I model) =
+    model.inputs
 
 
 getCurrentInput : Inputs -> Input
-getCurrentInput (Inputs inputs) =
-    inputs.currentInput
-        |> Maybe.withDefault (emptyInput inputs.pos)
+getCurrentInput (I model) =
+    model.currentInput
+        |> Maybe.withDefault (emptyInput model.pos)
 
 
 updatePos : Float -> Inputs -> Inputs
-updatePos pos (Inputs inputs) =
-    Inputs { inputs | currentInput = findCurrentInput pos inputs.inputs, pos = pos }
+updatePos pos (I model) =
+    I { model | currentInput = findCurrentInput pos model.inputs, pos = pos }
 
 
 toggleMember : elem -> EverySet elem -> EverySet elem
@@ -54,17 +58,17 @@ toggleMember elem set =
 
 
 mapCurrentInputHits : (EverySet Hit -> EverySet Hit) -> Inputs -> Inputs
-mapCurrentInputHits function (Inputs inputs) =
+mapCurrentInputHits function (I model) =
     let
         currentInput =
-            inputs.currentInput
-                |> Maybe.withDefault (emptyInput inputs.pos)
+            model.currentInput
+                |> Maybe.withDefault (emptyInput model.pos)
                 |> mapInputHits function
 
         updatedInputs =
-            case inputs.currentInput of
+            case model.currentInput of
                 Just input ->
-                    inputs.inputs
+                    model.inputs
                         |> List.map
                             (\i ->
                                 if i == input then
@@ -75,27 +79,27 @@ mapCurrentInputHits function (Inputs inputs) =
                             )
 
                 Nothing ->
-                    currentInput :: inputs.inputs
+                    currentInput :: model.inputs
     in
-    Inputs { inputs | inputs = List.sortBy .pos updatedInputs, currentInput = Just currentInput }
+    I { model | inputs = List.sortBy .pos updatedInputs, currentInput = Just currentInput }
 
 
 removeInput : Input -> Inputs -> Inputs
-removeInput input (Inputs inputs) =
-    Inputs
-        { inputs
-            | inputs = List.filter ((/=) input) inputs.inputs
+removeInput input (I model) =
+    I
+        { model
+            | inputs = List.filter ((/=) input) model.inputs
             , currentInput =
-                if inputs.currentInput == Just input then
+                if model.currentInput == Just input then
                     Nothing
 
                 else
-                    inputs.currentInput
+                    model.currentInput
         }
 
 
 removeCurrentInput : Inputs -> Inputs
-removeCurrentInput ((Inputs model) as inputs) =
+removeCurrentInput ((I model) as inputs) =
     case model.currentInput of
         Just input ->
             removeInput input inputs
@@ -105,23 +109,23 @@ removeCurrentInput ((Inputs model) as inputs) =
 
 
 getPos : Inputs -> Float
-getPos (Inputs inputs) =
-    inputs.pos
+getPos (I model) =
+    model.pos
 
 
 getPreviousInputPos : Inputs -> Maybe Float
-getPreviousInputPos (Inputs inputs) =
-    inputs.inputs
-        |> List.filter (\i -> i.pos < inputs.pos && Just i /= inputs.currentInput)
+getPreviousInputPos (I model) =
+    model.inputs
+        |> List.filter (\i -> i.pos < model.pos && Just i /= model.currentInput)
         |> List.reverse
         |> List.head
         |> Maybe.map .pos
 
 
 getNextInputPos : Inputs -> Maybe Float
-getNextInputPos (Inputs inputs) =
-    inputs.inputs
-        |> List.filter (\i -> i.pos > inputs.pos && Just i /= inputs.currentInput)
+getNextInputPos (I model) =
+    model.inputs
+        |> List.filter (\i -> i.pos > model.pos && Just i /= model.currentInput)
         |> List.head
         |> Maybe.map .pos
 
