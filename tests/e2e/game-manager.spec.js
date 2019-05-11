@@ -28,7 +28,7 @@ context('game manager', () => {
 
 		cy.contains('New Game')
 
-        cy.input('Esc')
+        cy.input('Escape')
         cy.contains('Normal')
 	})
 

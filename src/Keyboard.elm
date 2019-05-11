@@ -146,7 +146,7 @@ commandDecoder mode commands =
                             ( _, "x", None ) ->
                                 succeed <| commands.exportGame
 
-                            ( "Esc", _, None ) ->
+                            ( "Escape", _, None ) ->
                                 succeed <| commands.normalMode
 
                             _ ->
