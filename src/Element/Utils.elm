@@ -1,4 +1,4 @@
-module Element.Utils exposing (active, attrWhen, checked, elWhen, elWhenJust, tag)
+module Element.Utils exposing (attrWhen, checked, elWhen, elWhenJust, tag)
 
 import Element exposing (..)
 import Html.Attributes exposing (attribute, class, property)
@@ -41,8 +41,3 @@ tag t =
 checked : Bool -> Attribute msg
 checked isChecheked =
     htmlAttribute <| property "checked" (bool isChecheked)
-
-
-active : Bool -> Attribute msg
-active isActive =
-    htmlAttribute <| property "active" (bool isActive)

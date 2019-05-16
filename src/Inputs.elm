@@ -1,4 +1,4 @@
-module Inputs exposing (Hit(..), Input, Inputs, empty, getCurrentInput, getInputs, getNextInputPos, getPos, getPreviousInputPos, mapCurrentInputHits, removeCurrentInput, removeInput, toggleMember, updatePos)
+module Inputs exposing (Hit(..), Input, Inputs, Kind(..), empty, getCurrentInput, getInputs, getNextInputPos, getPos, getPreviousInputPos, mapCurrentInput, mapCurrentInputHits, removeCurrentInput, removeInput, toggleMember, updatePos)
 
 import EverySet exposing (EverySet)
 
@@ -15,6 +15,7 @@ type alias Input =
     { hits : EverySet Hit
     , pos : Float
     , duration : Float
+    , kind : Kind
     }
 
 
@@ -27,6 +28,12 @@ type Hit
     | RightDown
 
 
+type Kind
+    = Regular
+    | Long
+    | Pose
+
+
 empty : Inputs
 empty =
     I { inputs = [], currentInput = Nothing, pos = 0 }
@@ -37,10 +44,9 @@ getInputs (I model) =
     model.inputs
 
 
-getCurrentInput : Inputs -> Input
+getCurrentInput : Inputs -> Maybe Input
 getCurrentInput (I model) =
     model.currentInput
-        |> Maybe.withDefault (emptyInput model.pos)
 
 
 updatePos : Float -> Inputs -> Inputs
@@ -57,13 +63,13 @@ toggleMember elem set =
         EverySet.insert elem set
 
 
-mapCurrentInputHits : (EverySet Hit -> EverySet Hit) -> Inputs -> Inputs
-mapCurrentInputHits function (I model) =
+mapCurrentInput : (Input -> Input) -> Inputs -> Inputs
+mapCurrentInput function (I model) =
     let
         currentInput =
             model.currentInput
                 |> Maybe.withDefault (emptyInput model.pos)
-                |> mapInputHits function
+                |> function
 
         updatedInputs =
             case model.currentInput of
@@ -82,6 +88,11 @@ mapCurrentInputHits function (I model) =
                     currentInput :: model.inputs
     in
     I { model | inputs = List.sortBy .pos updatedInputs, currentInput = Just currentInput }
+
+
+mapCurrentInputHits : (EverySet Hit -> EverySet Hit) -> Inputs -> Inputs
+mapCurrentInputHits function =
+    mapCurrentInput (mapInputHits function)
 
 
 removeInput : Input -> Inputs -> Inputs
@@ -147,4 +158,5 @@ emptyInput pos =
     { hits = EverySet.empty
     , pos = pos
     , duration = 0.1
+    , kind = Regular
     }

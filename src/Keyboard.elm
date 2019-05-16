@@ -1,7 +1,7 @@
 module Keyboard exposing (Commands, Mode(..), commandDecoder, subscriptions)
 
 import Browser.Events exposing (onKeyDown)
-import Inputs exposing (Hit(..))
+import Inputs exposing (Hit(..), Kind(..))
 import Json.Decode exposing (Decoder, andThen, bool, fail, field, oneOf, string, succeed)
 import Json.Decode.Pipeline exposing (custom, required)
 
@@ -22,14 +22,14 @@ type alias Commands msg =
     , deleteCurrentInput : msg
     , undo : msg
     , redo : msg
-    , propertyMode : msg
+    , setKind : Kind -> msg
+    , mode : Mode -> msg
 
     -- Property Mode
     , openSong : msg
     , openGame : msg
     , newGame : msg
     , exportGame : msg
-    , normalMode : msg
     }
 
 
@@ -105,6 +105,15 @@ commandDecoder mode commands =
                             ( "KeyL", _, None ) ->
                                 succeed <| commands.toggleHit RightDown
 
+                            ( "KeyU", _, None ) ->
+                                succeed <| commands.setKind Regular
+
+                            ( "KeyI", _, None ) ->
+                                succeed <| commands.setKind Long
+
+                            ( "KeyO", _, None ) ->
+                                succeed <| commands.setKind Pose
+
                             ( "ArrowLeft", _, None ) ->
                                 succeed <| commands.backward
 
@@ -127,7 +136,7 @@ commandDecoder mode commands =
                                 succeed <| commands.redo
 
                             ( _, "p", None ) ->
-                                succeed <| commands.propertyMode
+                                succeed <| commands.mode PropertyMode
 
                             _ ->
                                 fail ""
@@ -147,7 +156,7 @@ commandDecoder mode commands =
                                 succeed <| commands.exportGame
 
                             ( "Escape", _, None ) ->
-                                succeed <| commands.normalMode
+                                succeed <| commands.mode NormalMode
 
                             _ ->
                                 fail ""

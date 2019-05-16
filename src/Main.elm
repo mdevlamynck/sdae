@@ -12,7 +12,7 @@ import Element.Events exposing (onMouseEnter, onMouseLeave)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
 import Element.Region exposing (aside, mainContent, navigation)
-import Element.Utils exposing (active, attrWhen, checked, elWhen, tag)
+import Element.Utils exposing (attrWhen, checked, elWhen, tag)
 import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Download as Download
@@ -102,6 +102,7 @@ type Msg
     | MsgRedo
     | MsgOnHoverStart Input
     | MsgOnHoverEnd
+    | MsgCurrentInputKind Kind
       -- Song
     | MsgSelectSong
     | MsgUnloadSong
@@ -261,6 +262,11 @@ update msg model =
             , Cmd.none
             )
 
+        MsgCurrentInputKind kind ->
+            ( model |> withHistory (mapCurrentInput (\input -> { input | kind = kind }))
+            , Cmd.none
+            )
+
         MsgSelectSong ->
             ( model
             , Select.file [] MsgSongSelected
@@ -375,12 +381,12 @@ subscriptions model =
             , deleteCurrentInput = MsgRemoveCurrentInput
             , undo = MsgUndo
             , redo = MsgRedo
-            , propertyMode = MsgSetMode PropertyMode
+            , mode = MsgSetMode
             , openSong = openSong
             , openGame = openGame
             , newGame = MsgNewGame
             , exportGame = MsgExportGame
-            , normalMode = MsgSetMode NormalMode
+            , setKind = MsgCurrentInputKind
             }
         , Ports.cypressSubscriptions
             { invalidCommand = MsgNoOp
@@ -463,15 +469,15 @@ inputListView model =
 inputRowView : Model -> Int -> Input -> Element Msg
 inputRowView model pos input =
     let
-        isActive =
-            getCurrentInput model.inputs == input
+        isChecked =
+            getCurrentInput model.inputs == Just input
     in
     row
         [ width fill
         , padding 5
         , tag ("hit " ++ String.fromInt (pos + 1))
-        , active isActive
-        , attrWhen isActive (Background.color buttonColor)
+        , checked isChecked
+        , attrWhen isChecked (Background.color buttonColor)
         , onMouseEnter (MsgOnHoverStart input)
         , onMouseLeave MsgOnHoverEnd
         ]
@@ -582,7 +588,75 @@ editorView model =
         input =
             getCurrentInput model.inputs
     in
-    el [ width (fill |> maximum 400), height (fill |> maximum 400), centerX, centerY, mainContent ] <|
+    column [ width fill, height fill, spaceEvenly ]
+        [ el [] none
+        , hitPropertiesView input
+        , hitEditorView input
+        , el [] none
+        ]
+
+
+hitPropertiesView : Maybe Input -> Element Msg
+hitPropertiesView input =
+    let
+        kindTag kind =
+            case kind of
+                Regular ->
+                    "regular"
+
+                Long ->
+                    "long"
+
+                Pose ->
+                    "pose"
+
+        properties kind =
+            if Maybe.map .kind input == Just kind then
+                [ padding 20
+                , Background.color <| rgb 0.5 0.5 0.5
+                , Font.color <| rgb 0.1 0.1 0.1
+                , Font.size 20
+                , Font.center
+                , checked True
+                , tag (kindTag kind)
+                ]
+
+            else
+                [ padding 20
+                , Background.color <| rgb 0.2 0.2 0.2
+                , Font.color <| rgb 0.9 0.9 0.9
+                , Font.size 20
+                , Font.center
+                , checked False
+                , tag (kindTag kind)
+                ]
+    in
+    row [ width fill, padding 20, spaceEvenly ]
+        [ row [ width fill, padding 20, spaceEvenly ]
+            []
+        , row [ width fill, padding 20, spaceEvenly ]
+            [ button
+                (properties Regular)
+                { onPress = Just (MsgCurrentInputKind Regular)
+                , label = text "Regular"
+                }
+            , button (properties Long)
+                { onPress = Just (MsgCurrentInputKind Long)
+                , label = text "Long"
+                }
+            , button (properties Pose)
+                { onPress = Just (MsgCurrentInputKind Pose)
+                , label = text "Pose"
+                }
+            ]
+        , row [ width fill, padding 20, spaceEvenly ]
+            []
+        ]
+
+
+hitEditorView : Maybe Input -> Element Msg
+hitEditorView input =
+    el [ width (fill |> maximum 400), height (fill |> maximum 400), centerX, mainContent ] <|
         column [ width fill, height fill, centerX, centerY ]
             [ row [ width fill, height fill, centerX, centerY ]
                 [ el [ width (fillPortion 1) ] none
@@ -604,9 +678,12 @@ editorView model =
             ]
 
 
-hitButton : Hit -> Input -> Element Msg
+hitButton : Hit -> Maybe Input -> Element Msg
 hitButton hit input =
     let
+        hits =
+            input |> Maybe.map .hits |> Maybe.withDefault EverySet.empty
+
         key =
             case hit of
                 LeftUp ->
@@ -627,7 +704,7 @@ hitButton hit input =
                 RightDown ->
                     "l"
     in
-    if EverySet.member hit input.hits then
+    if EverySet.member hit hits then
         button
             [ width (fillPortion 2)
             , height (fillPortion 2)
