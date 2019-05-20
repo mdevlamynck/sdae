@@ -1,37 +1,11 @@
 module AMG exposing (decode, encode)
 
+import Bitwise exposing (and, shiftLeftBy, shiftRightBy)
 import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Encode as E
 import Bytes.Parser as P exposing (Step(..))
-import Data exposing (Game)
-
-
-type alias Inputs =
-    { level : Level
-    , player : Player
-    , maxScore : Int
-    , inputs : List Input
-    }
-
-
-type alias Input =
-    {}
-
-
-type Level
-    = Easy
-    | Normal
-    | Hard
-    | SuperHard
-    | AltEasy
-    | AltNormal
-    | AltHard
-    | AltSuperHard
-
-
-type Player
-    = P1
-    | P2
+import Data exposing (Game, Hit(..), Input, Kind(..), Level(..), Player(..), Stage)
+import EverySet exposing (EverySet)
 
 
 
@@ -50,21 +24,22 @@ decode =
 
 decoder : Parser Game
 decoder =
-    P.succeed {}
+    P.succeed Game
         |> P.ignore (block "HEAD")
-        |> P.ignore body
+        |> P.keep body
 
 
-body : Parser ()
+body : Parser (List Stage)
 body =
-    P.loop bodyHelper ()
+    P.inContext "body" <|
+        P.loop bodyHelper []
 
 
-bodyHelper : () -> Parser (Step () ())
+bodyHelper : List Stage -> Parser (Step (List Stage) (List Stage))
 bodyHelper state =
     P.oneOf
-        [ P.succeed (Loop state)
-            |> P.ignore inputs
+        [ P.succeed (\i -> Loop (i :: state))
+            |> P.keep stage
         , P.succeed (Loop state)
             |> P.ignore
                 (P.oneOf
@@ -73,63 +48,61 @@ bodyHelper state =
                     , block "ONSH"
                     ]
                 )
-        , P.succeed (Done state)
+        , P.succeed (Done (List.reverse state))
             |> P.ignore (keyword "END_")
         ]
 
 
-inputs : Parser Inputs
-inputs =
-    P.string 4
-        |> P.andThen
-            (\name ->
-                case name of
-                    "EASY" ->
-                        P.succeed Easy
+stage : Parser Stage
+stage =
+    P.inContext "stage"
+        (P.string 4
+            |> P.andThen
+                (\name ->
+                    case name of
+                        "EASY" ->
+                            P.succeed Easy
 
-                    "NORM" ->
-                        P.succeed Normal
+                        "NORM" ->
+                            P.succeed Normal
 
-                    "HARD" ->
-                        P.succeed Hard
+                        "HARD" ->
+                            P.succeed Hard
 
-                    "SUPR" ->
-                        P.succeed SuperHard
+                        "SUPR" ->
+                            P.succeed SuperHard
 
-                    "DA_E" ->
-                        P.succeed AltEasy
+                        "DA_E" ->
+                            P.succeed AltEasy
 
-                    "DA_N" ->
-                        P.succeed AltNormal
+                        "DA_N" ->
+                            P.succeed AltNormal
 
-                    "DA_H" ->
-                        P.succeed AltHard
+                        "DA_H" ->
+                            P.succeed AltHard
 
-                    "DA_S" ->
-                        P.succeed AltSuperHard
+                        "DA_S" ->
+                            P.succeed AltSuperHard
 
-                    _ ->
-                        P.fail ()
-            )
-        |> P.andThen
-            (\level ->
-                dword
-                    |> P.andThen P.bytes
-                    |> P.andThen
-                        (\bytes ->
-                            case P.run (inputsBody level) bytes of
-                                Ok value ->
-                                    P.succeed value
-
-                                Err error ->
-                                    P.fail ()
-                        )
-            )
+                        _ ->
+                            P.fail ()
+                )
+            |> P.andThen
+                (\level ->
+                    dword
+                        |> P.andThen P.bytes
+                        |> P.andThen
+                            (\bytes ->
+                                P.run (stageBody level) bytes
+                                    |> unwrapResult
+                            )
+                )
+        )
 
 
-inputsBody : Level -> Parser Inputs
-inputsBody level =
-    P.succeed (Inputs level)
+stageBody : Level -> Parser Stage
+stageBody level =
+    P.succeed (Stage level)
         |> P.keep
             (dword
                 |> P.andThen
@@ -146,39 +119,111 @@ inputsBody level =
                     )
             )
         |> P.keep dword
-        |> P.keep (dword |> P.andThen (P.repeat input))
+        |> P.keep
+            (dword
+                |> P.andThen (P.repeat input)
+                |> P.map (List.filterMap identity)
+            )
 
 
-input : Parser Input
+input : Parser (Maybe Input)
 input =
-    P.succeed {}
-        |> P.ignore dword
-        |> P.ignore dword
+    P.inContext "input"
+        (P.succeed inputHelper
+            |> P.keep dword
+            |> P.keep dword
+        )
+
+
+inputHelper : Int -> Int -> Maybe Input
+inputHelper pos cmd =
+    let
+        with predicate value =
+            if predicate then
+                Just value
+
+            else
+                Nothing
+
+        maybeKind =
+            case u4 0 cmd of
+                1 ->
+                    Just Regular
+
+                _ ->
+                    Nothing
+
+        hits =
+            [ with (bit 4 cmd) LeftUp
+            , with (bit 5 cmd) LeftMiddle
+            , with (bit 6 cmd) LeftDown
+            , with (bit 7 cmd) RightUp
+            , with (bit 8 cmd) RightMiddle
+            , with (bit 9 cmd) RightDown
+            ]
+                |> List.filterMap identity
+                |> EverySet.fromList
+    in
+    case maybeKind of
+        Just kind ->
+            Just { hits = hits, pos = toFloat pos / 60, duration = 0.1, kind = kind }
+
+        _ ->
+            Nothing
 
 
 block : String -> Parser ()
 block blockName =
-    P.succeed ()
-        |> P.ignore (keyword blockName)
-        |> P.ignore (dword |> P.andThen P.bytes)
+    P.inContext ("block " ++ blockName)
+        (P.succeed ()
+            |> P.ignore (keyword blockName)
+            |> P.ignore (dword |> P.andThen P.bytes)
+        )
 
 
 keyword : String -> Parser ()
 keyword str =
-    P.string 4
-        |> P.andThen
-            (\parsed ->
-                if parsed == str then
-                    P.succeed ()
+    P.inContext ("keyword " ++ str)
+        (P.string 4
+            |> P.andThen
+                (\parsed ->
+                    if parsed == str then
+                        P.succeed ()
 
-                else
-                    P.fail ()
-            )
+                    else
+                        P.fail ()
+                )
+        )
+
+
+bit : Int -> Int -> Bool
+bit offset u32 =
+    u32
+        |> shiftRightBy offset
+        |> and 0x01
+        |> (==) 1
+
+
+u4 : Int -> Int -> Int
+u4 offset u32 =
+    u32
+        |> and 0x0F
 
 
 dword : Parser Int
 dword =
-    P.unsignedInt32 LE
+    P.inContext "dword" <|
+        P.unsignedInt32 LE
+
+
+unwrapMaybe : Maybe v -> Parser v
+unwrapMaybe =
+    Maybe.map P.succeed >> Maybe.withDefault (P.fail ())
+
+
+unwrapResult : Result e v -> Parser v
+unwrapResult =
+    Result.map P.succeed >> Result.withDefault (P.fail ())
 
 
 assert : (v -> Bool) -> v -> Parser v

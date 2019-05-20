@@ -4,13 +4,14 @@ import AMG
 import Base64
 import Browser
 import Bytes exposing (Bytes)
-import Data exposing (FileResource(..), Game, Song)
+import Data exposing (FileResource(..), Game, Hit(..), Input, Kind(..), Level(..), Player(..), Song, Stage)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events exposing (onMouseEnter, onMouseLeave)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
+import Element.Lazy exposing (..)
 import Element.Region exposing (aside, mainContent, navigation)
 import Element.Utils exposing (attrWhen, checked, elWhen, tag)
 import EverySet exposing (EverySet)
@@ -59,18 +60,21 @@ type alias Model =
 
     -- Player
     , isPlaying : Bool
+    , pos : Float
     , duration : Float
 
     -- Editor
     , inputs : Inputs
     , history : History Inputs
     , hoveredInput : Maybe Input
+    , currentInput : Maybe Input
 
     -- Song
     , song : FileResource Song
 
     -- Game File
     , game : FileResource Game
+    , currentStage : Maybe Stage
     }
 
 
@@ -108,13 +112,14 @@ type Msg
     | MsgUnloadSong
     | MsgSongSelected File
     | MsgSongContent String
-      -- Song
+      -- Game
     | MsgNewGame
     | MsgSelectGame
     | MsgUnloadGame
     | MsgExportGame
     | MsgGameSelected File
     | MsgGameLoaded Bytes
+    | MsgFocusStage Stage
       -- Cypress
     | MsgCypressLoadSong String String
     | MsgCypressLoadGame String
@@ -128,12 +133,15 @@ init : Flags -> ( Model, Cmd Msg )
 init _ =
     ( { mode = NormalMode
       , isPlaying = False
+      , pos = 0
       , duration = 0
       , inputs = empty
       , history = History.empty
       , hoveredInput = Nothing
+      , currentInput = Nothing
       , song = None
       , game = None
+      , currentStage = Nothing
       }
     , Cmd.none
     )
@@ -172,7 +180,11 @@ update msg model =
             )
 
         MsgPos pos ->
-            ( { model | inputs = updatePos pos model.inputs }
+            let
+                inputs =
+                    updatePos pos model.inputs
+            in
+            ( { model | pos = pos, inputs = inputs, currentInput = getCurrentInput inputs }
             , Cmd.none
             )
 
@@ -288,7 +300,7 @@ update msg model =
             )
 
         MsgNewGame ->
-            ( { model | game = Loaded {} }
+            ( { model | game = Loaded { stages = [] } }
             , Cmd.none
             )
 
@@ -298,7 +310,7 @@ update msg model =
             )
 
         MsgUnloadGame ->
-            ( { model | game = None }
+            ( { model | game = None, currentStage = Nothing }
             , Cmd.none
             )
 
@@ -330,6 +342,11 @@ update msg model =
                     ( { model | game = FailedToLoad }
                     , Cmd.none
                     )
+
+        MsgFocusStage stage ->
+            ( { model | currentStage = Just stage, inputs = Inputs.fromList stage.inputs }
+            , Cmd.none
+            )
 
         MsgCypressLoadSong name content ->
             ( { model | song = Loading { name = name } }
@@ -423,6 +440,51 @@ applyMoveInHistory ( history, maybeInputs ) model =
 -- View
 
 
+type alias ModelView =
+    { inputs : InputView
+    , player : PlayerView
+    , editor : EditorView
+    , song : SongView
+    , game : GameView
+    , status : StatusView
+    }
+
+
+type alias InputView =
+    { inputs : Inputs
+    , hoveredInput : Maybe Input
+    , currentInput : Maybe Input
+    }
+
+
+type alias PlayerView =
+    { isPlaying : Bool
+    , pos : Float
+    , duration : Float
+    }
+
+
+type alias EditorView =
+    { currentInput : Maybe Input
+    }
+
+
+type alias SongView =
+    { song : FileResource Song
+    }
+
+
+type alias GameView =
+    { game : FileResource Game
+    , currentStage : Maybe Stage
+    }
+
+
+type alias StatusView =
+    { mode : Mode
+    }
+
+
 view : Model -> Html Msg
 view model =
     layoutWith
@@ -442,35 +504,58 @@ view model =
         , height fill
         , padding 5
         ]
-        (mainView model)
+        (mainView
+            { inputs =
+                { inputs = model.inputs
+                , hoveredInput = model.hoveredInput
+                , currentInput = model.currentInput
+                }
+            , player =
+                { isPlaying = model.isPlaying
+                , pos = model.pos
+                , duration = model.duration
+                }
+            , editor =
+                { currentInput = model.currentInput
+                }
+            , song =
+                { song = model.song
+                }
+            , game =
+                { game = model.game
+                , currentStage = model.currentStage
+                }
+            , status =
+                { mode = model.mode
+                }
+            }
+        )
 
 
-mainView : Model -> Element Msg
+mainView : ModelView -> Element Msg
 mainView model =
-    column [ width fill, height fill, padding 20, spacing 20 ]
-        [ row [ width fill, height fill, spacing 40 ]
-            [ inputListView model
-            , column [ width fill, height fill, spacing 5 ]
-                [ playerView model
-                , editorView model
-                ]
-            , propertiesView model
+    row [ width fill, height fill, padding 20, spacing 40 ]
+        [ lazy inputListView model.inputs
+        , column [ width fill, height fill, spacing 5 ]
+            [ lazy playerView model.player
+            , lazy editorView model.editor
+            , lazy statusBar model.status
             ]
-        , statusBar model
+        , lazy2 propertiesView model.song model.game
         ]
 
 
-inputListView : Model -> Element Msg
+inputListView : InputView -> Element Msg
 inputListView model =
-    column [ height fill, width (shrink |> minimum 200), scrollbarY, aside, spacing 5 ] <|
+    column [ height fill, width (shrink |> minimum 200), scrollbars, aside, spacing 5 ] <|
         List.indexedMap (inputRowView model) (getInputs model.inputs)
 
 
-inputRowView : Model -> Int -> Input -> Element Msg
+inputRowView : InputView -> Int -> Input -> Element Msg
 inputRowView model pos input =
     let
         isChecked =
-            getCurrentInput model.inputs == Just input
+            model.currentInput == Just input
     in
     row
         [ width fill
@@ -502,7 +587,7 @@ inputRowView model pos input =
         ]
 
 
-playerView : Model -> Element Msg
+playerView : PlayerView -> Element Msg
 playerView model =
     column [ width fill, spacing 20, navigation ]
         [ row [ centerX, spacing 20, Font.size 30 ]
@@ -562,7 +647,7 @@ endBtn =
         }
 
 
-progressBarView : Model -> Element Msg
+progressBarView : PlayerView -> Element Msg
 progressBarView model =
     el [ width fill ] <|
         slider [ Background.color buttonColor, Border.rounded 8 ]
@@ -570,7 +655,7 @@ progressBarView model =
             , label = labelHidden "progress"
             , min = 0
             , max = model.duration
-            , value = getPos model.inputs
+            , value = model.pos
             , thumb =
                 thumb
                     [ Element.width (Element.px 20)
@@ -582,16 +667,12 @@ progressBarView model =
             }
 
 
-editorView : Model -> Element Msg
+editorView : EditorView -> Element Msg
 editorView model =
-    let
-        input =
-            getCurrentInput model.inputs
-    in
     column [ width fill, height fill, spaceEvenly ]
         [ el [] none
-        , hitPropertiesView input
-        , hitEditorView input
+        , hitPropertiesView model.currentInput
+        , hitEditorView model.currentInput
         , el [] none
         ]
 
@@ -737,17 +818,17 @@ hitButton hit input =
             }
 
 
-propertiesView : Model -> Element Msg
-propertiesView model =
+propertiesView : SongView -> GameView -> Element Msg
+propertiesView song game =
     column [ height fill, width (shrink |> minimum 200), centerX, spacing 60, aside ]
-        [ songPropertiesView model.song
-        , gamePropertiesView model.game
+        [ songPropertiesView song
+        , gamePropertiesView game
         ]
 
 
-songPropertiesView : FileResource Song -> Element Msg
-songPropertiesView resource =
-    case resource of
+songPropertiesView : SongView -> Element Msg
+songPropertiesView model =
+    case model.song of
         None ->
             el [ centerX ] <|
                 button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
@@ -772,9 +853,9 @@ songPropertiesView resource =
             none
 
 
-gamePropertiesView : FileResource Game -> Element Msg
-gamePropertiesView resource =
-    case resource of
+gamePropertiesView : GameView -> Element Msg
+gamePropertiesView model =
+    case model.game of
         None ->
             column [ centerX, spacing 10 ] <|
                 [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
@@ -801,6 +882,7 @@ gamePropertiesView resource =
                     { onPress = Just MsgUnloadGame
                     , label = text "g: Unload Game"
                     }
+                , stageSelectionView model game
                 ]
 
         FailedToLoad ->
@@ -818,7 +900,70 @@ gamePropertiesView resource =
                 ]
 
 
-statusBar : Model -> Element Msg
+stageSelectionView : GameView -> Game -> Element Msg
+stageSelectionView model { stages } =
+    column [ width fill ] <|
+        List.map (stageSelectionRowView model) stages
+
+
+stageSelectionRowView : GameView -> Stage -> Element Msg
+stageSelectionRowView model stage =
+    let
+        level =
+            case stage.level of
+                Easy ->
+                    "Easy"
+
+                Normal ->
+                    "Normal"
+
+                Hard ->
+                    "Hard"
+
+                SuperHard ->
+                    "SuperHard"
+
+                AltEasy ->
+                    "AltEasy"
+
+                AltNormal ->
+                    "AltNormal"
+
+                AltHard ->
+                    "AltHard"
+
+                AltSuperHard ->
+                    "AltSuperHard"
+
+        player =
+            case stage.player of
+                P1 ->
+                    "P1"
+
+                P2 ->
+                    "P2"
+
+        isChecked =
+            model.currentStage == Just stage
+    in
+    button
+        [ width fill
+        , padding 5
+        , tag ("stage " ++ String.toLower level ++ " " ++ String.toLower player)
+        , checked isChecked
+        , attrWhen isChecked (Background.color buttonColor)
+        ]
+        { onPress = Just (MsgFocusStage stage)
+        , label =
+            row [ spacing 20, alignRight ]
+                [ text level
+                , text player
+                , text (String.fromInt stage.maxScore)
+                ]
+        }
+
+
+statusBar : StatusView -> Element Msg
 statusBar model =
     row [ width fill ]
         [ text <|

@@ -1,5 +1,6 @@
-module Inputs exposing (Hit(..), Input, Inputs, Kind(..), empty, getCurrentInput, getInputs, getNextInputPos, getPos, getPreviousInputPos, mapCurrentInput, mapCurrentInputHits, removeCurrentInput, removeInput, toggleMember, updatePos)
+module Inputs exposing (Inputs, empty, fromList, getCurrentInput, getInputs, getNextInputPos, getPos, getPreviousInputPos, mapCurrentInput, mapCurrentInputHits, removeCurrentInput, removeInput, toggleMember, updatePos)
 
+import Data exposing (Hit(..), Input, Kind(..))
 import EverySet exposing (EverySet)
 
 
@@ -11,32 +12,14 @@ type Inputs
         }
 
 
-type alias Input =
-    { hits : EverySet Hit
-    , pos : Float
-    , duration : Float
-    , kind : Kind
-    }
-
-
-type Hit
-    = LeftUp
-    | LeftMiddle
-    | LeftDown
-    | RightUp
-    | RightMiddle
-    | RightDown
-
-
-type Kind
-    = Regular
-    | Long
-    | Pose
-
-
 empty : Inputs
 empty =
     I { inputs = [], currentInput = Nothing, pos = 0 }
+
+
+fromList : List Input -> Inputs
+fromList list =
+    I { inputs = list, currentInput = Nothing, pos = 0 }
 
 
 getInputs : Inputs -> List Input

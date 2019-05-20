@@ -11,7 +11,7 @@ import Test exposing (..)
 
 emptyGame : Game
 emptyGame =
-    {}
+    { stages = [] }
 
 
 emptyFile : Bytes

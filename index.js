@@ -10,7 +10,7 @@ const app = Elm.Main.init({
 // For Tests
 window.cypress = (json) => {
     console.log(json);
-	app.ports.cypress.send(json);
+    app.ports.cypress.send(json);
 };
 
 var song = null;
@@ -51,13 +51,14 @@ app.ports.toJs.subscribe((json) => {
 function load(json) {
     var loading = new Howl({
         src: [json.song],
-        onload: function(){
+        onload: function() {
             song = loading;
             toElm('songLoaded');
             toElm('pos');
 
             playPause();
         },
+        onloaderror: console.log,
         onplay: function() {
             isPlaying = true;
             toElm('isPlaying');

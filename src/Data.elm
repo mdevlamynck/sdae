@@ -1,4 +1,6 @@
-module Data exposing (FileResource(..), Game, Song)
+module Data exposing (FileResource(..), Game, Hit(..), Input, Kind(..), Level(..), Player(..), Song, Stage)
+
+import EverySet exposing (EverySet)
 
 
 type FileResource f
@@ -13,4 +15,52 @@ type alias Song =
 
 
 type alias Game =
-    {}
+    { stages : List Stage
+    }
+
+
+type alias Stage =
+    { level : Level
+    , player : Player
+    , maxScore : Int
+    , inputs : List Input
+    }
+
+
+type Level
+    = Easy
+    | Normal
+    | Hard
+    | SuperHard
+    | AltEasy
+    | AltNormal
+    | AltHard
+    | AltSuperHard
+
+
+type Player
+    = P1
+    | P2
+
+
+type alias Input =
+    { hits : EverySet Hit
+    , pos : Float
+    , duration : Float
+    , kind : Kind
+    }
+
+
+type Hit
+    = LeftUp
+    | LeftMiddle
+    | LeftDown
+    | RightUp
+    | RightMiddle
+    | RightDown
+
+
+type Kind
+    = Regular
+    | Long
+    | Pose
