@@ -68,7 +68,6 @@ type alias Model =
     , inputs : Inputs
     , history : History Inputs
     , hoveredInput : Maybe Input
-    , currentInput : Maybe Input
 
     -- Song
     , song : FileResource Song
@@ -139,7 +138,6 @@ init _ =
       , inputs = empty
       , history = History.empty
       , hoveredInput = Nothing
-      , currentInput = Nothing
       , song = None
       , game = None
       , currentStage = Nothing
@@ -185,7 +183,7 @@ update msg model =
                 inputs =
                     updatePos pos model.inputs
             in
-            ( { model | pos = pos, inputs = inputs, currentInput = getCurrentInput inputs }
+            ( { model | pos = pos, inputs = inputs }
             , Cmd.none
             )
 
@@ -509,7 +507,7 @@ view model =
             { inputs =
                 { inputs = model.inputs
                 , hoveredInput = model.hoveredInput
-                , currentInput = model.currentInput
+                , currentInput = getCurrentInput model.inputs
                 }
             , player =
                 { isPlaying = model.isPlaying
@@ -517,7 +515,7 @@ view model =
                 , duration = model.duration
                 }
             , editor =
-                { currentInput = model.currentInput
+                { currentInput = getCurrentInput model.inputs
                 }
             , song =
                 { song = model.song
