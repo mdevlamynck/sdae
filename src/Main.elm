@@ -20,6 +20,7 @@ import File.Download as Download
 import File.Select as Select
 import History exposing (History)
 import Html exposing (Html)
+import Html.Attributes exposing (style)
 import Inputs exposing (..)
 import Keyboard exposing (Mode(..))
 import Ports
@@ -534,14 +535,18 @@ view model =
 
 mainView : ModelView -> Element Msg
 mainView model =
-    row [ width fill, height fill, padding 20, spacing 40 ]
-        [ lazy inputListView model.inputs
-        , column [ width fill, height fill, spacing 5 ]
-            [ lazy playerView model.player
-            , lazy editorView model.editor
-            , lazy statusBar model.status
+    -- using clip and flex-shrink to work around scrollbar bug
+    -- see https://github.com/mdgriffith/elm-ui/issues/12.
+    column [ width fill, height fill, padding 20, spacing 20, clip ]
+        [ row [ width fill, height fill, spacing 40, clip, htmlAttribute (style "flex-shrink" "1") ]
+            [ lazy inputListView model.inputs
+            , column [ width fill, height fill, spacing 5 ]
+                [ lazy playerView model.player
+                , lazy editorView model.editor
+                ]
+            , lazy2 propertiesView model.song model.game
             ]
-        , lazy2 propertiesView model.song model.game
+        , lazy statusBar model.status
         ]
 
 
