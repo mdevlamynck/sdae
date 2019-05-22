@@ -45,6 +45,9 @@ app.ports.toJs.subscribe((json) => {
         case 'seek':
             seek(json);
             break;
+        case 'scrollIntoView':
+            scrollIntoView(json);
+            break;
     }
 });
 
@@ -144,6 +147,14 @@ function seek(json) {
     }
 
     song.seek(json.pos);
+}
+
+function scrollIntoView(json) {
+	var element = document.getElementById(json.elementId);
+
+	if (element) {
+		element.scrollIntoView({behavior: 'auto', block: 'center', inline: 'center'});
+	}
 }
 
 function sendPos() {

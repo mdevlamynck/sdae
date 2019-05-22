@@ -1,4 +1,4 @@
-port module Ports exposing (backward, begin, cypressSubscriptions, end, forward, load, playPause, seek, subscriptions, unload)
+port module Ports exposing (backward, begin, cypressSubscriptions, end, forward, load, playPause, scrollIntoView, seek, subscriptions, unload)
 
 import Json.Decode as D exposing (Decoder, andThen, decodeValue, fail, field)
 import Json.Decode.Pipeline exposing (required)
@@ -128,3 +128,12 @@ cypressCommandDecoder commands =
                     _ ->
                         fail ""
             )
+
+
+scrollIntoView : String -> Cmd msg
+scrollIntoView el =
+    toJs <|
+        object
+            [ ( "command", string "scrollIntoView" )
+            , ( "elementId", string el )
+            ]

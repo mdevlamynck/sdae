@@ -13,7 +13,7 @@ import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
 import Element.Lazy exposing (..)
 import Element.Region exposing (aside, mainContent, navigation)
-import Element.Utils exposing (attrWhen, checked, elWhen, tag)
+import Element.Utils exposing (attrWhen, checked, elWhen, id, tag)
 import EverySet exposing (EverySet)
 import File exposing (File)
 import File.Download as Download
@@ -182,9 +182,17 @@ update msg model =
             let
                 inputs =
                     updatePos pos model.inputs
+
+                currentInput =
+                    getCurrentInput inputs
             in
             ( { model | pos = pos, inputs = inputs }
-            , Cmd.none
+            , case ( model.isPlaying, currentInput ) of
+                ( True, Just input ) ->
+                    Ports.scrollIntoView ("input" ++ String.fromFloat input.pos)
+
+                _ ->
+                    Cmd.none
             )
 
         MsgBegin ->
@@ -280,11 +288,13 @@ update msg model =
 
         MsgSelectSong ->
             ( model
+                |> resetMode
             , Select.file [] MsgSongSelected
             )
 
         MsgUnloadSong ->
             ( { model | song = None }
+                |> resetMode
             , Ports.unload
             )
 
@@ -300,16 +310,19 @@ update msg model =
 
         MsgNewGame ->
             ( { model | game = Loaded { stages = [] } }
+                |> resetMode
             , Cmd.none
             )
 
         MsgSelectGame ->
             ( model
+                |> resetMode
             , Select.file [] MsgGameSelected
             )
 
         MsgUnloadGame ->
             ( { model | game = None, currentStage = Nothing }
+                |> resetMode
             , Cmd.none
             )
 
@@ -317,11 +330,13 @@ update msg model =
             case model.game of
                 Loaded game ->
                     ( model
+                        |> resetMode
                     , Download.bytes "song.AMG" "application/octet-stream" (AMG.encode game)
                     )
 
                 _ ->
                     ( model
+                        |> resetMode
                     , Cmd.none
                     )
 
@@ -344,6 +359,7 @@ update msg model =
 
         MsgFocusStage stage ->
             ( { model | currentStage = Just stage, inputs = Inputs.fromList stage.inputs }
+                |> resetMode
             , Cmd.none
             )
 
@@ -433,6 +449,11 @@ applyMoveInHistory ( history, maybeInputs ) model =
     ( { model | inputs = inputs, history = history }
     , Ports.seek (getPos inputs)
     )
+
+
+resetMode : Model -> Model
+resetMode model =
+    { model | mode = NormalMode }
 
 
 
@@ -563,6 +584,7 @@ inputRowView model pos input =
     row
         [ width fill
         , padding 5
+        , id ("input" ++ String.fromFloat input.pos)
         , tag ("hit " ++ String.fromInt (pos + 1))
         , checked isChecked
         , attrWhen isChecked (Background.color buttonColor)
