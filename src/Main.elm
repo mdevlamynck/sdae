@@ -84,7 +84,7 @@ type Msg
     | MsgSetMode Mode
       -- Commands
     | MsgIsPlaying Bool
-    | MsgSongLoaded Float
+    | MsgSongLoaded (Result () Float)
     | MsgPos Float
       -- Player
     | MsgBegin
@@ -164,17 +164,22 @@ update msg model =
             , Cmd.none
             )
 
-        MsgSongLoaded duration ->
-            ( { model
-                | duration = duration
-                , song =
-                    case model.song of
-                        Loading file ->
-                            Loaded file
+        MsgSongLoaded result ->
+            ( case result of
+                Ok duration ->
+                    { model
+                        | duration = duration
+                        , song =
+                            case model.song of
+                                Loading file ->
+                                    Loaded file
 
-                        resource ->
-                            resource
-              }
+                                resource ->
+                                    resource
+                    }
+
+                Err _ ->
+                    { model | song = FailedToLoad }
             , Cmd.none
             )
 
@@ -385,12 +390,18 @@ subscriptions model =
                 None ->
                     MsgSelectSong
 
+                FailedToLoad ->
+                    MsgSelectSong
+
                 _ ->
                     MsgUnloadSong
 
         openGame =
             case model.game of
                 None ->
+                    MsgSelectGame
+
+                FailedToLoad ->
                     MsgSelectGame
 
                 _ ->
@@ -875,7 +886,15 @@ songPropertiesView model =
                 ]
 
         FailedToLoad ->
-            none
+            column [ centerX, spacing 10 ] <|
+                [ el [ centerX ] <|
+                    button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                        { onPress = Just MsgSelectSong
+                        , label = text "o: Select Song"
+                        }
+                , el [ centerX ] <|
+                    text "Failed to load"
+                ]
 
 
 gamePropertiesView : GameView -> Element Msg

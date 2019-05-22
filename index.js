@@ -61,7 +61,9 @@ function load(json) {
 
             playPause();
         },
-        onloaderror: console.log,
+        onloaderror: function () {
+            toElm('songFailedToLoad');
+        },
         onplay: function() {
             isPlaying = true;
             toElm('isPlaying');
@@ -150,11 +152,11 @@ function seek(json) {
 }
 
 function scrollIntoView(json) {
-	var element = document.getElementById(json.elementId);
+    var element = document.getElementById(json.elementId);
 
-	if (element) {
-		element.scrollIntoView({behavior: 'auto', block: 'center', inline: 'center'});
-	}
+    if (element) {
+        element.scrollIntoView({behavior: 'auto', block: 'center', inline: 'center'});
+    }
 }
 
 function sendPos() {
@@ -174,6 +176,8 @@ function toElm(command) {
             break;
         case 'songLoaded':
             payload.duration = song.duration();
+            break;
+		case 'songFailedToLoad':
             break;
         case 'pos':
             if (song === null) {

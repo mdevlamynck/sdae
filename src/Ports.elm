@@ -62,7 +62,7 @@ port toElm : (Value -> msg) -> Sub msg
 type alias Commands msg =
     { invalidCommand : msg
     , isPlaying : Bool -> msg
-    , songLoaded : Float -> msg
+    , songLoaded : Result () Float -> msg
     , pos : Float -> msg
     }
 
@@ -83,8 +83,11 @@ commandDecoder commands =
                             |> required "isPlaying" D.bool
 
                     "songLoaded" ->
-                        D.succeed commands.songLoaded
+                        D.succeed (Ok >> commands.songLoaded)
                             |> required "duration" D.float
+
+                    "songFailedToLoad" ->
+                        D.succeed (Err () |> commands.songLoaded)
 
                     "pos" ->
                         D.succeed commands.pos
