@@ -1,7 +1,9 @@
 module AMG.Decoder exposing (decoder)
 
 import AMG.Bitwise exposing (..)
+import AMG.Encoder as E
 import Bytes exposing (Bytes, Endianness(..))
+import Bytes.Encode as E
 import Bytes.Parser as P exposing (..)
 import Data exposing (Game, Hit(..), Input, Kind(..), Level(..), Player(..), Stage)
 import EverySet exposing (EverySet)
@@ -11,33 +13,52 @@ type alias Parser a =
     P.Parser String () a
 
 
+type alias Command =
+    { hits : EverySet Hit
+    , kind : Kind
+    }
+
+
+type Kind
+    = KindRegular Int
+    | KindPose Int
+    | KindLongStart Int
+    | KindLongEnd Int
+
+
 decoder : Parser Game
 decoder =
-    succeed Game
-        |> ignore (block "HEAD")
-        |> keep body
+    block "HEAD"
+        |> map
+            (\head ->
+                { stages = []
+                , head = head
+                , act = E.encode E.empty
+                , cam = E.encode E.empty
+                , onsh = E.encode E.empty
+                }
+            )
+        |> andThen body
 
 
-body : Parser (List Stage)
-body =
+body : Game -> Parser Game
+body game =
     inContext "body" <|
-        loop bodyHelper []
+        loop bodyHelper game
 
 
-bodyHelper : List Stage -> Parser (Step (List Stage) (List Stage))
+bodyHelper : Game -> Parser (Step Game Game)
 bodyHelper state =
     oneOf
-        [ succeed (\i -> Loop (i :: state))
+        [ succeed (\i -> Loop { state | stages = i :: state.stages })
             |> keep stage
-        , succeed (Loop state)
-            |> ignore
-                (oneOf
-                    [ block "ACT_"
-                    , block "CAM_"
-                    , block "ONSH"
-                    ]
-                )
-        , succeed (Done (List.reverse state))
+        , succeed (\i -> Loop { state | act = i })
+            |> keep (block "ACT_")
+        , succeed (\i -> Loop { state | cam = i })
+            |> keep (block "CAM_")
+        , succeed (\i -> Loop { state | onsh = i })
+            |> keep (block "ONSH")
+        , succeed (Done { state | stages = List.reverse state.stages })
             |> ignore (keyword "END_")
         ]
 
@@ -62,16 +83,16 @@ stage =
                             succeed SuperHard
 
                         "DA_E" ->
-                            succeed AltEasy
+                            succeed HustleEasy
 
                         "DA_N" ->
-                            succeed AltNormal
+                            succeed HustleNormal
 
                         "DA_H" ->
-                            succeed AltHard
+                            succeed HustleHard
 
                         "DA_S" ->
-                            succeed AltSuperHard
+                            succeed HustleSuperHard
 
                         _ ->
                             fail ()
@@ -110,22 +131,78 @@ stageBody level =
         |> keep dword
         |> keep
             (dword
-                |> andThen (repeat input)
-                |> map (List.filterMap identity)
+                |> andThen (repeat command)
+                |> map (List.foldl commandsToInputs ( Nothing, [] ) >> Tuple.second >> List.reverse)
             )
 
 
-input : Parser (Maybe Input)
-input =
-    inContext "input"
-        (succeed inputHelper
+commandsToInputs : Maybe Command -> ( Maybe Command, List Input ) -> ( Maybe Command, List Input )
+commandsToInputs maybeCmd acc =
+    case ( maybeCmd, acc ) of
+        ( Just cmd, ( maybePreviousCmd, inputs ) ) ->
+            case cmd.kind of
+                KindRegular pos ->
+                    ( maybeCmd
+                    , { hits = cmd.hits
+                      , pos = pos
+                      , offset = 3
+                      , duration = 0
+                      , kind = Regular
+                      }
+                        :: inputs
+                    )
+
+                KindPose pos ->
+                    ( maybeCmd
+                    , { hits = cmd.hits
+                      , pos = pos
+                      , offset = 3
+                      , duration = 60
+                      , kind = Pose
+                      }
+                        :: inputs
+                    )
+
+                KindLongEnd end ->
+                    case maybePreviousCmd of
+                        Just previousCmd ->
+                            case previousCmd.kind of
+                                KindLongStart start ->
+                                    ( maybeCmd
+                                    , { hits = previousCmd.hits
+                                      , pos = start
+                                      , offset = 3
+                                      , duration = end - start
+                                      , kind = Long
+                                      }
+                                        :: inputs
+                                    )
+
+                                _ ->
+                                    ( maybeCmd, inputs )
+
+                        _ ->
+                            ( maybeCmd, inputs )
+
+                _ ->
+                    ( maybeCmd, inputs )
+
+        ( _, ( _, inputs ) ) ->
+            ( maybeCmd, inputs )
+
+
+command : Parser (Maybe Command)
+command =
+    inContext "command"
+        (succeed commandHelper
             |> keep dword
             |> keep dword
+            |> andThen identity
         )
 
 
-inputHelper : Int -> Int -> Maybe Input
-inputHelper pos cmd =
+commandHelper : Int -> Int -> Parser (Maybe Command)
+commandHelper pos cmd =
     let
         with predicate value =
             if predicate then
@@ -137,7 +214,16 @@ inputHelper pos cmd =
         maybeKind =
             case u4 0 cmd of
                 1 ->
-                    Just Regular
+                    Just (KindRegular pos)
+
+                4 ->
+                    Just (KindPose pos)
+
+                3 ->
+                    Just (KindLongStart pos)
+
+                8 ->
+                    Just (KindLongEnd pos)
 
                 _ ->
                     Nothing
@@ -155,29 +241,29 @@ inputHelper pos cmd =
     in
     case maybeKind of
         Just kind ->
-            Just { hits = hits, pos = pos, offset = 3, kind = kind }
+            succeed (Just { hits = hits, kind = kind })
 
         _ ->
-            Nothing
+            succeed Nothing
 
 
-block : String -> Parser ()
+block : String -> Parser Bytes
 block blockName =
     inContext ("block " ++ blockName)
-        (succeed ()
-            |> ignore (keyword blockName)
-            |> ignore (dword |> andThen bytes)
+        (succeed (\n ( s, b ) -> E.encode (E.sequence [ E.string n, E.dword s, E.bytes b ]))
+            |> keep (keyword blockName)
+            |> keep (dword |> andThen (\s -> bytes s |> map (\b -> ( s, b ))))
         )
 
 
-keyword : String -> Parser ()
+keyword : String -> Parser String
 keyword str =
     inContext ("keyword " ++ str)
         (string 4
             |> andThen
                 (\parsed ->
                     if parsed == str then
-                        succeed ()
+                        succeed str
 
                     else
                         fail ()

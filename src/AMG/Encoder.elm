@@ -1,4 +1,4 @@
-module AMG.Encoder exposing (encoder)
+module AMG.Encoder exposing (dword, empty, emptyGame, encoder, head)
 
 import AMG.Bitwise exposing (..)
 import Bytes exposing (..)
@@ -10,15 +10,28 @@ import EverySet
 encoder : Game -> Encoder
 encoder game =
     sequence
-        [ head game
+        [ bytes game.head
+        , bytes game.cam
         , stages game
+        , bytes game.act
+        , bytes game.onsh
         , end
         ]
 
 
-head : Game -> Encoder
-head game =
-    block "HEAD" <| sequence []
+emptyGame : Game
+emptyGame =
+    { stages = []
+    , head = head
+    , act = encode empty
+    , cam = encode empty
+    , onsh = encode empty
+    }
+
+
+head : Bytes
+head =
+    encode <| block "HEAD" empty
 
 
 stages : Game -> Encoder
@@ -44,16 +57,16 @@ stage s =
                 SuperHard ->
                     "SUPR"
 
-                AltEasy ->
+                HustleEasy ->
                     "DA_E"
 
-                AltNormal ->
+                HustleNormal ->
                     "DA_N"
 
-                AltHard ->
+                HustleHard ->
                     "DA_H"
 
-                AltSuperHard ->
+                HustleSuperHard ->
                     "DA_S"
 
         player =
@@ -63,12 +76,20 @@ stage s =
 
                 P2 ->
                     1
+
+        kind i =
+            case i.kind of
+                Long ->
+                    2
+
+                _ ->
+                    1
     in
     block level <|
         sequence
             [ dword player
             , dword s.maxScore
-            , dword (List.length s.inputs)
+            , dword (s.inputs |> List.map kind |> List.sum)
             , sequence <|
                 List.map input s.inputs
             ]
@@ -100,15 +121,37 @@ block name body =
 
 input : Input -> Encoder
 input i =
-    sequence
-        [ dword i.pos
-        , dword (cmd i)
-        ]
+    case i.kind of
+        Long ->
+            sequence
+                [ dword i.pos
+                , dword (cmd i)
+                , dword (i.pos + i.duration)
+                , dword 8
+                ]
+
+        _ ->
+            sequence
+                [ dword i.pos
+                , dword (cmd i)
+                ]
 
 
 cmd : Input -> Int
 cmd i =
-    1
+    let
+        kind =
+            case i.kind of
+                Regular ->
+                    1
+
+                Pose ->
+                    4
+
+                Long ->
+                    3
+    in
+    kind
         |> set 4 (EverySet.member LeftUp i.hits)
         |> set 5 (EverySet.member LeftMiddle i.hits)
         |> set 6 (EverySet.member LeftDown i.hits)
@@ -130,3 +173,8 @@ u8 =
 dword : Int -> Encoder
 dword =
     unsignedInt32 LE
+
+
+empty : Encoder
+empty =
+    sequence []

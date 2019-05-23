@@ -1,5 +1,7 @@
 module Data exposing (FileResource(..), Game, Hit(..), Input, Kind(..), Level(..), Player(..), Song, Stage)
 
+import Bytes exposing (Bytes)
+import Bytes.Encode as E
 import EverySet exposing (EverySet)
 
 
@@ -11,11 +13,16 @@ type FileResource f
 
 
 type alias Song =
-    { name : String }
+    { name : String
+    }
 
 
 type alias Game =
     { stages : List Stage
+    , head : Bytes
+    , act : Bytes
+    , cam : Bytes
+    , onsh : Bytes
     }
 
 
@@ -32,10 +39,10 @@ type Level
     | Normal
     | Hard
     | SuperHard
-    | AltEasy
-    | AltNormal
-    | AltHard
-    | AltSuperHard
+    | HustleEasy
+    | HustleNormal
+    | HustleHard
+    | HustleSuperHard
 
 
 type Player
@@ -47,6 +54,7 @@ type alias Input =
     { hits : EverySet Hit
     , pos : Int
     , offset : Int
+    , duration : Int
     , kind : Kind
     }
 

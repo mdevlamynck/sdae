@@ -61,5 +61,6 @@ emptyInput pos =
     { hits = EverySet.empty
     , pos = pos
     , offset = 3
+    , duration = 0
     , kind = Regular
     }

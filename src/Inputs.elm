@@ -159,10 +159,10 @@ findCurrentInput : Int -> Inputs -> ( Index, Maybe Input )
 findCurrentInput pos (I model) =
     let
         cmp input =
-            if pos < (input.pos - input.offset) then
+            if pos < input.pos - input.offset then
                 LT
 
-            else if pos >= input.pos + input.offset then
+            else if pos >= input.pos + input.offset + input.duration then
                 GT
 
             else
@@ -201,6 +201,7 @@ emptyInput pos =
     { hits = EverySet.empty
     , pos = pos
     , offset = 3
+    , duration = 0
     , kind = Regular
     }
 

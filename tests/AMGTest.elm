@@ -2,6 +2,7 @@ module AMGTest exposing (suite)
 
 import AMG
 import AMG.Decoder
+import AMG.Encoder exposing (emptyGame)
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Bytes.Parser as Bytes
@@ -15,7 +16,7 @@ import Test exposing (..)
 
 game : Fuzzer Game
 game =
-    map Game
+    map (\stages -> { emptyGame | stages = stages })
         (list stage)
 
 
@@ -27,10 +28,10 @@ stage =
             , constant Normal
             , constant Hard
             , constant SuperHard
-            , constant AltEasy
-            , constant AltNormal
-            , constant AltHard
-            , constant AltSuperHard
+            , constant HustleEasy
+            , constant HustleNormal
+            , constant HustleHard
+            , constant HustleSuperHard
             ]
         )
         (oneOf
@@ -44,30 +45,41 @@ stage =
 
 input : Fuzzer Input
 input =
-    map4 Input
-        (list
-            (oneOf
-                [ constant LeftUp
-                , constant LeftMiddle
-                , constant LeftDown
-                , constant RightUp
-                , constant RightMiddle
-                , constant RightDown
-                ]
-            )
-            |> map (List.sortBy hitValue)
-            |> map EverySet.fromList
-        )
-        (intRange 0 Random.maxInt)
-        (constant 3)
-        (oneOf
-            [ constant Regular
-
-            -- Not handled yet
-            --, constant Long
-            --, constant Pose
-            ]
-        )
+    let
+        hits =
+            list
+                (oneOf
+                    [ constant LeftUp
+                    , constant LeftMiddle
+                    , constant LeftDown
+                    , constant RightUp
+                    , constant RightMiddle
+                    , constant RightDown
+                    ]
+                )
+                |> map (List.sortBy hitValue)
+                |> map EverySet.fromList
+    in
+    oneOf
+        [ map5 Input
+            hits
+            (intRange 0 Random.maxInt)
+            (constant 3)
+            (constant 0)
+            (constant Regular)
+        , map5 Input
+            hits
+            (intRange 0 Random.maxInt)
+            (constant 3)
+            (constant 60)
+            (constant Pose)
+        , map5 Input
+            hits
+            (intRange 0 Random.maxInt)
+            (constant 3)
+            (intRange 60 120)
+            (constant Long)
+        ]
 
 
 hitValue hit =

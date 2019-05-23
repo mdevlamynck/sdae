@@ -30,6 +30,7 @@ suite =
                         { hits = EverySet.fromList [ LeftUp, RightDown ]
                         , pos = pos * separation
                         , offset = 3
+                        , duration = 0
                         , kind = Regular
                         }
                     )
@@ -43,6 +44,7 @@ suite =
                         { hits = EverySet.fromList [ LeftUp, RightDown ]
                         , pos = pos * separation
                         , offset = 3
+                        , duration = 0
                         , kind = Regular
                         }
                     )

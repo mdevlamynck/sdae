@@ -1,10 +1,11 @@
 module Main exposing (main)
 
 import AMG
+import AMG.Encoder exposing (emptyGame)
 import Base64
 import Browser
 import Bytes exposing (Bytes)
-import Data exposing (FileResource(..), Game, Hit(..), Input, Kind(..), Level(..), Player(..), Song, Stage)
+import Data exposing (..)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -319,7 +320,7 @@ update msg model =
             )
 
         MsgNewGame ->
-            ( { model | game = Loaded { stages = [] } }
+            ( { model | game = Loaded emptyGame }
                 |> resetMode
             , Cmd.none
             )
@@ -972,17 +973,17 @@ stageSelectionRowView model stage =
                 SuperHard ->
                     "SuperHard"
 
-                AltEasy ->
-                    "AltEasy"
+                HustleEasy ->
+                    "HustleEasy"
 
-                AltNormal ->
-                    "AltNormal"
+                HustleNormal ->
+                    "HustleNormal"
 
-                AltHard ->
-                    "AltHard"
+                HustleHard ->
+                    "HustleHard"
 
-                AltSuperHard ->
-                    "AltSuperHard"
+                HustleSuperHard ->
+                    "HustleSuperHard"
 
         player =
             case stage.player of
