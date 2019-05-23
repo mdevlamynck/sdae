@@ -155,7 +155,7 @@ inputHelper pos cmd =
     in
     case maybeKind of
         Just kind ->
-            Just { hits = hits, pos = toFloat pos / 60, duration = 0.1, kind = kind }
+            Just { hits = hits, pos = pos, offset = 3, kind = kind }
 
         _ ->
             Nothing

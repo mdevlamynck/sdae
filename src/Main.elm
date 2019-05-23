@@ -62,6 +62,7 @@ type alias Model =
     -- Player
     , isPlaying : Bool
     , pos : Float
+    , frame : Int
     , duration : Float
 
     -- Editor
@@ -134,6 +135,7 @@ init _ =
     ( { mode = NormalMode
       , isPlaying = False
       , pos = 0
+      , frame = 0
       , duration = 0
       , inputs = empty
       , history = History.empty
@@ -185,16 +187,19 @@ update msg model =
 
         MsgPos pos ->
             let
+                frame =
+                    ceiling (pos * 60)
+
                 inputs =
-                    updatePos pos model.inputs
+                    updatePos frame model.inputs
 
                 currentInput =
                     getCurrentInput inputs
             in
-            ( { model | pos = pos, inputs = inputs }
+            ( { model | pos = pos, frame = frame, inputs = inputs }
             , case ( model.isPlaying, currentInput ) of
                 ( True, Just input ) ->
-                    Ports.scrollIntoView ("input" ++ String.fromFloat input.pos)
+                    Ports.scrollIntoView ("input" ++ String.fromInt input.pos)
 
                 _ ->
                     Cmd.none
@@ -257,17 +262,17 @@ update msg model =
 
         MsgFocusInput input ->
             ( model
-            , Ports.seek input.pos
+            , Ports.seek (toFloat input.pos / 60)
             )
 
         MsgPreviousInput ->
             ( model
-            , Ports.seek (getPreviousInputPos model.inputs |> Maybe.withDefault 0)
+            , Ports.seek (getPreviousInputPos model.inputs |> Maybe.map (\v -> toFloat v / 60) |> Maybe.withDefault 0)
             )
 
         MsgNextInput ->
             ( model
-            , Ports.seek (getNextInputPos model.inputs |> Maybe.withDefault model.duration)
+            , Ports.seek (getNextInputPos model.inputs |> Maybe.map (\v -> toFloat v / 60) |> Maybe.withDefault model.duration)
             )
 
         MsgUndo ->
@@ -458,7 +463,7 @@ applyMoveInHistory ( history, maybeInputs ) model =
             maybeInputs |> Maybe.withDefault empty
     in
     ( { model | inputs = inputs, history = history }
-    , Ports.seek (getPos inputs)
+    , Ports.seek (toFloat (getPos inputs) / 60)
     )
 
 
@@ -595,7 +600,7 @@ inputRowView model pos input =
     row
         [ width fill
         , padding 5
-        , id ("input" ++ String.fromFloat input.pos)
+        , id ("input" ++ String.fromInt input.pos)
         , tag ("hit " ++ String.fromInt (pos + 1))
         , checked isChecked
         , attrWhen isChecked (Background.color buttonColor)
@@ -606,7 +611,7 @@ inputRowView model pos input =
             { onPress = Just (MsgFocusInput input)
             , label =
                 text
-                    (round 2 input.pos
+                    (String.fromInt input.pos
                         ++ (if EverySet.isEmpty input.hits then
                                 " (empty)"
 

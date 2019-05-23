@@ -18,10 +18,7 @@ encoder game =
 
 head : Game -> Encoder
 head game =
-    sequence
-        [ string "HEAD"
-        , dword 0
-        ]
+    block "HEAD" <| sequence []
 
 
 stages : Game -> Encoder
@@ -39,7 +36,7 @@ stage s =
                     "EASY"
 
                 Normal ->
-                    "NORMAL"
+                    "NORM"
 
                 Hard ->
                     "HARD"
@@ -66,31 +63,45 @@ stage s =
 
                 P2 ->
                     1
+    in
+    block level <|
+        sequence
+            [ dword player
+            , dword s.maxScore
+            , dword (List.length s.inputs)
+            , sequence <|
+                List.map input s.inputs
+            ]
 
-        body =
-            encode <|
-                sequence
-                    [ dword player
-                    , dword s.maxScore
-                    , dword (List.length s.inputs)
-                    , sequence <|
-                        List.map input s.inputs
-                    ]
 
+block : String -> Encoder -> Encoder
+block name body =
+    let
         bodySize =
-            ceiling (toFloat (width body) / 4) * 4
+            width (encode body)
+
+        paddingSize =
+            case modBy 16 (bodySize + 8) of
+                0 ->
+                    0
+
+                n ->
+                    16 - n
     in
     sequence
-        [ string level
-        , dword bodySize
-        , bytes body
+        [ string name
+        , sequence
+            [ dword (bodySize + paddingSize)
+            , body
+            , sequence (List.repeat paddingSize (u8 0))
+            ]
         ]
 
 
 input : Input -> Encoder
 input i =
     sequence
-        [ dword (floor (i.pos * 60))
+        [ dword i.pos
         , dword (cmd i)
         ]
 
@@ -109,6 +120,11 @@ cmd i =
 end : Encoder
 end =
     string "END_"
+
+
+u8 : Int -> Encoder
+u8 =
+    unsignedInt8
 
 
 dword : Int -> Encoder

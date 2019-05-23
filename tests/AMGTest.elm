@@ -1,70 +1,102 @@
 module AMGTest exposing (suite)
 
 import AMG
+import AMG.Decoder
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
+import Bytes.Parser as Bytes
 import Data exposing (..)
 import EverySet
 import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, int, list, string)
+import Fuzz exposing (..)
+import Random
 import Test exposing (..)
 
 
-emptyGame : Game
-emptyGame =
-    { stages = [] }
+game : Fuzzer Game
+game =
+    map Game
+        (list stage)
 
 
-sampleGame : Game
-sampleGame =
-    { stages =
-        [ { level = Easy
-          , player = P1
-          , maxScore = 42
-          , inputs =
-                [ { hits = EverySet.fromList [ LeftUp, RightDown ]
-                  , pos = 256 / 60
-                  , duration = 0.1
-                  , kind = Regular
-                  }
-                , { hits = EverySet.fromList [ LeftUp, RightDown ]
-                  , pos = 1024 / 60
-                  , duration = 0.1
-                  , kind = Regular
-                  }
+stage : Fuzzer Stage
+stage =
+    map4 Stage
+        (oneOf
+            [ constant Easy
+            , constant Normal
+            , constant Hard
+            , constant SuperHard
+            , constant AltEasy
+            , constant AltNormal
+            , constant AltHard
+            , constant AltSuperHard
+            ]
+        )
+        (oneOf
+            [ constant P1
+            , constant P2
+            ]
+        )
+        (intRange 0 Random.maxInt)
+        (list input)
+
+
+input : Fuzzer Input
+input =
+    map4 Input
+        (list
+            (oneOf
+                [ constant LeftUp
+                , constant LeftMiddle
+                , constant LeftDown
+                , constant RightUp
+                , constant RightMiddle
+                , constant RightDown
                 ]
-          }
-        , { level = AltSuperHard
-          , player = P2
-          , maxScore = 24
-          , inputs =
-                [ { hits = EverySet.fromList [ LeftUp, RightDown ]
-                  , pos = 256 / 60
-                  , duration = 0.1
-                  , kind = Regular
-                  }
-                , { hits = EverySet.fromList [ LeftUp, RightDown ]
-                  , pos = 1024 / 60
-                  , duration = 0.1
-                  , kind = Regular
-                  }
-                ]
-          }
-        ]
-    }
+            )
+            |> map (List.sortBy hitValue)
+            |> map EverySet.fromList
+        )
+        (intRange 0 Random.maxInt)
+        (constant 3)
+        (oneOf
+            [ constant Regular
+
+            -- Not handled yet
+            --, constant Long
+            --, constant Pose
+            ]
+        )
+
+
+hitValue hit =
+    case hit of
+        LeftUp ->
+            0
+
+        LeftMiddle ->
+            1
+
+        LeftDown ->
+            2
+
+        RightUp ->
+            3
+
+        RightMiddle ->
+            4
+
+        RightDown ->
+            5
 
 
 suite : Test
 suite =
     describe "AMG"
-        [ test "Encoded then decoded emptyGame is unchanged" <|
-            \_ ->
-                emptyGame
-                    |> (AMG.encode >> AMG.decode)
-                    |> Expect.equal (Just emptyGame)
-        , test "Encoded then decoded sampleGame is unchanged" <|
-            \_ ->
-                sampleGame
-                    |> (AMG.encode >> AMG.decode)
-                    |> Expect.equal (Just sampleGame)
+        [ fuzz game "Encoded then decoded game is unchanged" <|
+            \g ->
+                g
+                    |> (AMG.encode >> Bytes.run AMG.Decoder.decoder)
+                    |> Expect.equal (Ok g)
         ]

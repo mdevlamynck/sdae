@@ -8,7 +8,7 @@ type Inputs
     = I
         { inputs : List Input
         , currentInput : Maybe Input
-        , pos : Float
+        , pos : Int
         }
 
 
@@ -32,7 +32,7 @@ getCurrentInput (I model) =
     model.currentInput
 
 
-updatePos : Float -> Inputs -> Inputs
+updatePos : Int -> Inputs -> Inputs
 updatePos pos (I model) =
     I { model | currentInput = findCurrentInput pos model.inputs, pos = pos }
 
@@ -102,24 +102,24 @@ removeCurrentInput ((I model) as inputs) =
             inputs
 
 
-getPos : Inputs -> Float
+getPos : Inputs -> Int
 getPos (I model) =
     model.pos
 
 
-getPreviousInputPos : Inputs -> Maybe Float
+getPreviousInputPos : Inputs -> Maybe Int
 getPreviousInputPos (I model) =
     model.inputs
-        |> List.filter (\i -> i.pos < model.pos && Just i /= model.currentInput)
+        |> List.filter (\i -> i.pos - i.offset < model.pos && Just i /= model.currentInput)
         |> List.reverse
         |> List.head
         |> Maybe.map .pos
 
 
-getNextInputPos : Inputs -> Maybe Float
+getNextInputPos : Inputs -> Maybe Int
 getNextInputPos (I model) =
     model.inputs
-        |> List.filter (\i -> i.pos > model.pos && Just i /= model.currentInput)
+        |> List.filter (\i -> i.pos - i.offset > model.pos && Just i /= model.currentInput)
         |> List.head
         |> Maybe.map .pos
 
@@ -129,17 +129,17 @@ mapInputHits function input =
     { input | hits = function input.hits }
 
 
-findCurrentInput : Float -> List Input -> Maybe Input
+findCurrentInput : Int -> List Input -> Maybe Input
 findCurrentInput pos inputs =
     inputs
-        |> List.filter (\input -> pos >= input.pos && pos <= input.pos + input.duration)
+        |> List.filter (\input -> pos - input.offset >= input.pos - input.offset && pos <= input.pos + input.offset)
         |> List.head
 
 
-emptyInput : Float -> Input
+emptyInput : Int -> Input
 emptyInput pos =
     { hits = EverySet.empty
     , pos = pos
-    , duration = 0.1
+    , offset = 3
     , kind = Regular
     }

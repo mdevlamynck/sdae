@@ -15,7 +15,7 @@ window.cypress = (json) => {
 
 var song = null;
 var isPlaying = false;
-var posTimeout = 100;
+var posTimeout = 1/60;
 
 app.ports.toJs.subscribe((json) => {
     console.log(json);

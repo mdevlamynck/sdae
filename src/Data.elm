@@ -45,8 +45,8 @@ type Player
 
 type alias Input =
     { hits : EverySet Hit
-    , pos : Float
-    , duration : Float
+    , pos : Int
+    , offset : Int
     , kind : Kind
     }
 
