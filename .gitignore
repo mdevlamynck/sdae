@@ -5,3 +5,4 @@ dist
 .idea/*
 cypress
 sample files
+bench.html

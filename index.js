@@ -9,7 +9,6 @@ const app = Elm.Main.init({
 
 // For Tests
 window.cypress = (json) => {
-    console.log(json);
     app.ports.cypress.send(json);
 };
 
@@ -18,8 +17,6 @@ var isPlaying = false;
 var posTimeout = 1/60;
 
 app.ports.toJs.subscribe((json) => {
-    console.log(json);
-
     switch (json.command) {
         case 'load':
             load(json);
@@ -161,7 +158,6 @@ function scrollIntoView(json) {
 
 function sendPos() {
     toElm('pos');
-    console.log(isPlaying);
     if (isPlaying) {
         setTimeout(sendPos, posTimeout);
     }
@@ -188,6 +184,5 @@ function toElm(command) {
             break;
     }
 
-    console.log(payload);
     app.ports.toElm.send(payload);
 }
