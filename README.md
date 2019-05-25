@@ -1,14 +1,34 @@
 # SDAE
 
+## Github hosted version
+
+You can access a build of this projet at https://mdevlamynck.github.io/sdae/.
+
 ## Run locally
 
+To run the projet locally in your browser you first need to build it:
+
 ```
-npm i           # Install dependencies
-npm run serve   # Build project and run
-npm run build   # Build project in production mode
-npm run test    # Run tests
-npm run e2e     # Run end to end tests (requires that the project runs with npm run serve)
-npm run cypress # Open cypress e2e tests
+npm i         # Installs dependencies
+npm run build # Builds project
+```
+
+You can then open the `dist/index.html` file in your favorite web browser for example:
+
+```
+firefox dist/index.html
+```
+
+## Usefull commands to hack on the project
+
+```
+npm i                     # Install dependencies
+npm run serve             # Builds the project and run on http://localhost:1234
+npm run test              # Runs tests
+npm run e2e               # Runs end to end tests (requires that the project runs with npm run serve)
+npm run cypress           # Opens cypress e2e tests
+npm run bench             # Builds the benchmarks to the bench.html file (open it in a browser to run the benchs)
+npm run amg-test "<file>" # Tries to decode and reencode the given file then compares the output to the original
 ```
 
 ## Notes

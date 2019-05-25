@@ -17,9 +17,17 @@ cache:
     - npm run cy:verify
 
 script:
-  - npm run build
   - npm run test-format
   - npm run test
   - npm run serve &
   - npm run e2e
   - kill $(jobs -p) || true
+  - npm run build-gh-pages
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  local_dir: release
+  on:
+    branch: master

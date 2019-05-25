@@ -1,12 +1,14 @@
 {
   "scripts": {
-    "serve": "parcel serve index.html",
-    "build": "parcel build index.html",
-    "bench": "elm make tests/Benchmarks.elm --optimize --output bench.html",
+    "build": "parcel build src/index.html --public-url=./",
+    "build-gh-pages": "parcel build src/index.html -d release --public-url=/sdae/ --no-source-maps",
+    "serve": "parcel serve src/index.html",
     "test": "elm-test",
-    "e2e": "cypress run",
     "test-format": "elm-format --validate .",
-    "cypress": "cypress"
+    "e2e": "cypress run",
+    "cypress": "cypress",
+    "bench": "elm make tests/Benchmarks.elm --optimize --output bench.html",
+	"amg-test": "parcel build -o amgtester.js --target node --log-level 1 amgtester.js && node dist/amgtester.js"
   },
   "devDependencies": {
     "cypress": "^3.2.0",
