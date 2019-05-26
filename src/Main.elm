@@ -12,6 +12,7 @@ import Element.Border as Border
 import Element.Events exposing (onMouseEnter, onMouseLeave)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
+import Element.Keyed as Keyed
 import Element.Lazy exposing (..)
 import Element.Region exposing (aside, mainContent, navigation)
 import Element.Utils exposing (attrWhen, checked, elWhen, id, tag)
@@ -63,7 +64,6 @@ type alias Model =
     -- Player
     , isPlaying : Bool
     , pos : Float
-    , frame : Int
     , duration : Float
 
     -- Editor
@@ -96,9 +96,8 @@ type Msg
     | MsgEnd
     | MsgSeek Float
       -- Editor
-    | MsgAddHit Hit
-    | MsgRemoveHit Hit
     | MsgToggleHit Hit
+    | MsgSetInputKind Kind
     | MsgFocusInput Input
     | MsgRemoveInput Input
     | MsgRemoveCurrentInput
@@ -108,7 +107,6 @@ type Msg
     | MsgRedo
     | MsgOnHoverStart Input
     | MsgOnHoverEnd
-    | MsgCurrentInputKind Kind
       -- Song
     | MsgSelectSong
     | MsgUnloadSong
@@ -136,7 +134,6 @@ init _ =
     ( { mode = NormalMode
       , isPlaying = False
       , pos = 0
-      , frame = 0
       , duration = 0
       , inputs = empty
       , history = History.empty
@@ -197,7 +194,7 @@ update msg model =
                 currentInput =
                     getCurrentInput inputs
             in
-            ( { model | pos = pos, frame = frame, inputs = inputs }
+            ( { model | pos = pos, inputs = inputs }
             , case ( model.isPlaying, currentInput ) of
                 ( True, Just input ) ->
                     Ports.scrollIntoView ("input" ++ String.fromInt input.pos)
@@ -236,13 +233,13 @@ update msg model =
             , Ports.seek pos
             )
 
-        MsgAddHit hit ->
-            ( model |> withHistory (mapCurrentInputHits (EverySet.insert hit))
+        MsgToggleHit hit ->
+            ( model |> withHistory (mapCurrentInputHits (toggleMember hit))
             , Cmd.none
             )
 
-        MsgRemoveHit hit ->
-            ( model |> withHistory (mapCurrentInputHits (EverySet.remove hit))
+        MsgSetInputKind kind ->
+            ( model |> withHistory (mapCurrentInput (\input -> { input | kind = kind }))
             , Cmd.none
             )
 
@@ -253,11 +250,6 @@ update msg model =
 
         MsgRemoveCurrentInput ->
             ( model |> withHistory removeCurrentInput
-            , Cmd.none
-            )
-
-        MsgToggleHit hit ->
-            ( model |> withHistory (mapCurrentInputHits (toggleMember hit))
             , Cmd.none
             )
 
@@ -289,11 +281,6 @@ update msg model =
 
         MsgOnHoverEnd ->
             ( { model | hoveredInput = Nothing }
-            , Cmd.none
-            )
-
-        MsgCurrentInputKind kind ->
-            ( model |> withHistory (mapCurrentInput (\input -> { input | kind = kind }))
             , Cmd.none
             )
 
@@ -435,7 +422,7 @@ subscriptions model =
             , openGame = openGame
             , newGame = MsgNewGame
             , exportGame = MsgExportGame
-            , setKind = MsgCurrentInputKind
+            , setKind = MsgSetInputKind
             }
         , Ports.cypressSubscriptions
             { invalidCommand = MsgNoOp
@@ -588,17 +575,18 @@ mainView model =
 
 inputListView : InputView -> Element Msg
 inputListView model =
-    column [ height fill, width (shrink |> minimum 200), scrollbars, aside, spacing 5 ] <|
+    Keyed.column [ height fill, width (shrink |> minimum 200), scrollbars, aside, spacing 5 ] <|
         List.indexedMap (inputRowView model) (getInputs model.inputs)
 
 
-inputRowView : InputView -> Int -> Input -> Element Msg
+inputRowView : InputView -> Int -> Input -> ( String, Element Msg )
 inputRowView model pos input =
     let
         isChecked =
             model.currentInput == Just input
     in
-    row
+    ( String.fromInt input.pos
+    , row
         [ width fill
         , padding 5
         , id ("input" ++ String.fromInt input.pos)
@@ -627,6 +615,7 @@ inputRowView model pos input =
                 , label = text "❌"
                 }
         ]
+    )
 
 
 playerView : PlayerView -> Element Msg
@@ -760,15 +749,15 @@ hitPropertiesView input =
         , row [ width fill, padding 20, spaceEvenly ]
             [ button
                 (properties Regular)
-                { onPress = Just (MsgCurrentInputKind Regular)
+                { onPress = Just (MsgSetInputKind Regular)
                 , label = text "Regular"
                 }
             , button (properties Long)
-                { onPress = Just (MsgCurrentInputKind Long)
+                { onPress = Just (MsgSetInputKind Long)
                 , label = text "Long"
                 }
             , button (properties Pose)
-                { onPress = Just (MsgCurrentInputKind Pose)
+                { onPress = Just (MsgSetInputKind Pose)
                 , label = text "Pose"
                 }
             ]
@@ -839,7 +828,7 @@ hitButton hit input =
             , Font.size 20
             , checked True
             ]
-            { onPress = Just (MsgRemoveHit hit)
+            { onPress = Just (MsgToggleHit hit)
             , label = text key
             }
 
@@ -855,7 +844,7 @@ hitButton hit input =
             , Font.size 20
             , checked False
             ]
-            { onPress = Just (MsgAddHit hit)
+            { onPress = Just (MsgToggleHit hit)
             , label = text key
             }
 
