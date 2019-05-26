@@ -575,18 +575,17 @@ mainView model =
 
 inputListView : InputView -> Element Msg
 inputListView model =
-    Keyed.column [ height fill, width (shrink |> minimum 200), scrollbars, aside, spacing 5 ] <|
+    column [ height fill, width (shrink |> minimum 200), scrollbars, aside, spacing 5 ] <|
         List.indexedMap (inputRowView model) (getInputs model.inputs)
 
 
-inputRowView : InputView -> Int -> Input -> ( String, Element Msg )
+inputRowView : InputView -> Int -> Input -> Element Msg
 inputRowView model pos input =
     let
         isChecked =
             model.currentInput == Just input
     in
-    ( String.fromInt input.pos
-    , row
+    row
         [ width fill
         , padding 5
         , id ("input" ++ String.fromInt input.pos)
@@ -615,7 +614,6 @@ inputRowView model pos input =
                 , label = text "❌"
                 }
         ]
-    )
 
 
 playerView : PlayerView -> Element Msg
@@ -961,18 +959,6 @@ stageSelectionRowView model stage =
 
                 SuperHard ->
                     "SuperHard"
-
-                HustleEasy ->
-                    "HustleEasy"
-
-                HustleNormal ->
-                    "HustleNormal"
-
-                HustleHard ->
-                    "HustleHard"
-
-                HustleSuperHard ->
-                    "HustleSuperHard"
 
         player =
             case stage.player of

@@ -33,9 +33,7 @@ decoder =
             (\head ->
                 { stages = []
                 , head = head
-                , act = E.encode E.empty
-                , cam = E.encode E.empty
-                , onsh = E.encode E.empty
+                , rawBlocks = []
                 }
             )
         |> andThen body
@@ -52,13 +50,19 @@ bodyHelper state =
     oneOf
         [ succeed (\i -> Loop { state | stages = i :: state.stages })
             |> keep stage
-        , succeed (\i -> Loop { state | act = i })
-            |> keep (block "ACT_")
-        , succeed (\i -> Loop { state | cam = i })
-            |> keep (block "CAM_")
-        , succeed (\i -> Loop { state | onsh = i })
-            |> keep (block "ONSH")
-        , succeed (Done { state | stages = List.reverse state.stages })
+        , succeed (\b -> Loop { state | rawBlocks = b :: state.rawBlocks })
+            |> keep
+                (oneOf
+                    [ block "ACT_"
+                    , block "CAM_"
+                    , block "ONSH"
+                    , block "DA_E"
+                    , block "DA_N"
+                    , block "DA_H"
+                    , block "DA_S"
+                    ]
+                )
+        , succeed (Done { state | stages = List.reverse state.stages, rawBlocks = List.reverse state.rawBlocks })
             |> ignore (keyword "END_")
         ]
 
@@ -81,18 +85,6 @@ stage =
 
                         "SUPR" ->
                             succeed SuperHard
-
-                        "DA_E" ->
-                            succeed HustleEasy
-
-                        "DA_N" ->
-                            succeed HustleNormal
-
-                        "DA_H" ->
-                            succeed HustleHard
-
-                        "DA_S" ->
-                            succeed HustleSuperHard
 
                         _ ->
                             fail ()

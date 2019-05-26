@@ -20,9 +20,7 @@ type alias Song =
 type alias Game =
     { stages : List Stage
     , head : Bytes
-    , act : Bytes
-    , cam : Bytes
-    , onsh : Bytes
+    , rawBlocks : List Bytes
     }
 
 
@@ -39,10 +37,6 @@ type Level
     | Normal
     | Hard
     | SuperHard
-    | HustleEasy
-    | HustleNormal
-    | HustleHard
-    | HustleSuperHard
 
 
 type Player

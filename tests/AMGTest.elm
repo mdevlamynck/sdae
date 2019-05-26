@@ -28,10 +28,6 @@ stage =
             , constant Normal
             , constant Hard
             , constant SuperHard
-            , constant HustleEasy
-            , constant HustleNormal
-            , constant HustleHard
-            , constant HustleSuperHard
             ]
         )
         (oneOf

@@ -11,10 +11,8 @@ encoder : Game -> Encoder
 encoder game =
     sequence
         [ bytes game.head
-        , bytes game.cam
         , stages game
-        , bytes game.act
-        , bytes game.onsh
+        , sequence (List.map bytes game.rawBlocks)
         , end
         ]
 
@@ -23,9 +21,7 @@ emptyGame : Game
 emptyGame =
     { stages = []
     , head = head
-    , act = encode empty
-    , cam = encode empty
-    , onsh = encode empty
+    , rawBlocks = []
     }
 
 
@@ -56,18 +52,6 @@ stage s =
 
                 SuperHard ->
                     "SUPR"
-
-                HustleEasy ->
-                    "DA_E"
-
-                HustleNormal ->
-                    "DA_N"
-
-                HustleHard ->
-                    "DA_H"
-
-                HustleSuperHard ->
-                    "DA_S"
 
         player =
             case s.player of
