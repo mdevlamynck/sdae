@@ -19,6 +19,7 @@
             "elm-explorations/benchmark": "1.0.1",
             "mdgriffith/elm-ui": "1.1.0",
             "myrho/elm-round": "1.0.4",
+            "yotamDvir/elm-pivot": "3.1.0",
             "zwilias/elm-bytes-parser": "1.0.0"
         },
         "indirect": {

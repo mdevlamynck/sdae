@@ -5,12 +5,20 @@ import AMG.Encoder as E
 import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Encode as E
 import Bytes.Parser as P exposing (..)
-import Data exposing (Game, Hit(..), Input, Kind(..), Level(..), Player(..), Stage)
+import Data exposing (Game, Hit(..), Input, Kind(..), Level(..), Player(..), Stage, compareInput)
 import EverySet exposing (EverySet)
+import TimeArray
 
 
 type alias Parser a =
     P.Parser String () a
+
+
+type alias File =
+    { stages : List Stage
+    , head : Bytes
+    , blocks : List Bytes
+    }
 
 
 type alias Command =
@@ -33,24 +41,37 @@ decoder =
             (\head ->
                 { stages = []
                 , head = head
-                , rawBlocks = []
+                , blocks = []
                 }
             )
         |> andThen body
+        |> andThen fileToGame
 
 
-body : Game -> Parser Game
+fileToGame : File -> Parser Game
+fileToGame file =
+    succeed
+        { stages = file.stages
+        , raw =
+            Just
+                { head = file.head
+                , blocks = file.blocks
+                }
+        }
+
+
+body : File -> Parser File
 body game =
     inContext "body" <|
         loop bodyHelper game
 
 
-bodyHelper : Game -> Parser (Step Game Game)
+bodyHelper : File -> Parser (Step File File)
 bodyHelper state =
     oneOf
         [ succeed (\i -> Loop { state | stages = i :: state.stages })
             |> keep stage
-        , succeed (\b -> Loop { state | rawBlocks = b :: state.rawBlocks })
+        , succeed (\b -> Loop { state | blocks = b :: state.blocks })
             |> keep
                 (oneOf
                     [ block "ACT_"
@@ -62,7 +83,7 @@ bodyHelper state =
                     , block "DA_S"
                     ]
                 )
-        , succeed (Done { state | stages = List.reverse state.stages, rawBlocks = List.reverse state.rawBlocks })
+        , succeed (Done { state | stages = List.reverse state.stages, blocks = List.reverse state.blocks })
             |> ignore (keyword "END_")
         ]
 
@@ -124,7 +145,7 @@ stageBody level =
         |> keep
             (dword
                 |> andThen (repeat command)
-                |> map (List.foldl commandsToInputs ( Nothing, [] ) >> Tuple.second >> List.reverse)
+                |> map (List.foldl commandsToInputs ( Nothing, [] ) >> Tuple.second >> List.reverse >> TimeArray.fromList compareInput)
             )
 
 

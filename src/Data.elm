@@ -1,8 +1,9 @@
-module Data exposing (FileResource(..), Game, Hit(..), Input, Kind(..), Level(..), Player(..), Song, Stage)
+module Data exposing (FileResource(..), Game, Hit(..), Input, Kind(..), Level(..), Player(..), Raw, Song, Stage, compareInput, emptyGame, emptyInput)
 
 import Bytes exposing (Bytes)
 import Bytes.Encode as E
 import EverySet exposing (EverySet)
+import TimeArray exposing (TimeArray)
 
 
 type FileResource f
@@ -19,8 +20,13 @@ type alias Song =
 
 type alias Game =
     { stages : List Stage
-    , head : Bytes
-    , rawBlocks : List Bytes
+    , raw : Maybe Raw
+    }
+
+
+type alias Raw =
+    { head : Bytes
+    , blocks : List Bytes
     }
 
 
@@ -28,7 +34,7 @@ type alias Stage =
     { level : Level
     , player : Player
     , maxScore : Int
-    , inputs : List Input
+    , inputs : TimeArray Input
     }
 
 
@@ -66,3 +72,32 @@ type Kind
     = Regular
     | Long
     | Pose
+
+
+emptyGame : Game
+emptyGame =
+    { stages = []
+    , raw = Nothing
+    }
+
+
+emptyInput : Int -> Input
+emptyInput pos =
+    { hits = EverySet.empty
+    , pos = pos
+    , offset = 3
+    , duration = 0
+    , kind = Regular
+    }
+
+
+compareInput : Int -> Input -> Order
+compareInput frame input =
+    if frame < input.pos - input.offset then
+        LT
+
+    else if frame > input.pos + input.offset + input.duration then
+        GT
+
+    else
+        EQ

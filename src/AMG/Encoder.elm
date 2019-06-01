@@ -1,32 +1,34 @@
-module AMG.Encoder exposing (dword, empty, emptyGame, encoder, head)
+module AMG.Encoder exposing (dword, emptyHead, encoder)
 
 import AMG.Bitwise exposing (..)
 import Bytes exposing (..)
 import Bytes.Encode exposing (..)
 import Data exposing (..)
 import EverySet
+import TimeArray
 
 
 encoder : Game -> Encoder
 encoder game =
+    let
+        ( head, blocks ) =
+            case game.raw of
+                Just raw ->
+                    ( raw.head, raw.blocks )
+
+                Nothing ->
+                    ( emptyHead, [] )
+    in
     sequence
-        [ bytes game.head
+        [ bytes head
         , stages game
-        , sequence (List.map bytes game.rawBlocks)
+        , sequence (List.map bytes blocks)
         , end
         ]
 
 
-emptyGame : Game
-emptyGame =
-    { stages = []
-    , head = head
-    , rawBlocks = []
-    }
-
-
-head : Bytes
-head =
+emptyHead : Bytes
+emptyHead =
     encode <| block "HEAD" empty
 
 
@@ -68,14 +70,17 @@ stage s =
 
                 _ ->
                     1
+
+        inputs =
+            TimeArray.toList s.inputs
     in
     block level <|
         sequence
             [ dword player
             , dword s.maxScore
-            , dword (s.inputs |> List.map kind |> List.sum)
+            , dword (inputs |> List.map kind |> List.sum)
             , sequence <|
-                List.map input s.inputs
+                List.map input inputs
             ]
 
 

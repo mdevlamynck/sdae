@@ -2,7 +2,7 @@ module AMGTest exposing (suite)
 
 import AMG
 import AMG.Decoder
-import AMG.Encoder exposing (emptyGame)
+import AMG.Encoder exposing (emptyHead)
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Bytes.Parser as Bytes
@@ -12,11 +12,18 @@ import Expect exposing (Expectation)
 import Fuzz exposing (..)
 import Random
 import Test exposing (..)
+import TimeArray exposing (TimeArray)
+
+
+timeArray : (Int -> a -> Order) -> Fuzzer a -> Fuzzer (TimeArray a)
+timeArray cmp a =
+    map (TimeArray.fromList cmp)
+        (list a)
 
 
 game : Fuzzer Game
 game =
-    map (\stages -> { emptyGame | stages = stages })
+    map (\stages -> { stages = stages, raw = Just { head = emptyHead, blocks = [] } })
         (list stage)
 
 
@@ -36,7 +43,7 @@ stage =
             ]
         )
         (intRange 0 Random.maxInt)
-        (list input)
+        (timeArray compareInput input)
 
 
 input : Fuzzer Input
@@ -78,6 +85,7 @@ input =
         ]
 
 
+hitValue : Hit -> Int
 hitValue hit =
     case hit of
         LeftUp ->

@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import AMG
-import AMG.Encoder exposing (emptyGame)
+import AMG.Encoder
 import Base64
 import Browser
 import Bytes exposing (Bytes)
@@ -23,11 +23,11 @@ import File.Select as Select
 import History exposing (History)
 import Html exposing (Html)
 import Html.Attributes exposing (style)
-import Inputs exposing (..)
 import Keyboard exposing (Mode(..))
 import Ports
 import Round exposing (round)
 import Task
+import TimeArray as TA exposing (TimeArray)
 
 
 main : Program Flags Model Msg
@@ -67,8 +67,8 @@ type alias Model =
     , duration : Float
 
     -- Editor
-    , inputs : Inputs
-    , history : History Inputs
+    , inputs : TimeArray Input
+    , history : History (TimeArray Input)
     , hoveredInput : Maybe Input
 
     -- Song
@@ -135,7 +135,7 @@ init _ =
       , isPlaying = False
       , pos = 0
       , duration = 0
-      , inputs = empty
+      , inputs = TA.empty compareInput
       , history = History.empty
       , hoveredInput = Nothing
       , song = None
@@ -186,13 +186,13 @@ update msg model =
         MsgPos pos ->
             let
                 frame =
-                    ceiling (pos * 60)
+                    secToFrame pos
 
                 inputs =
-                    updatePos frame model.inputs
+                    TA.updatePos frame model.inputs
 
                 currentInput =
-                    getCurrentInput inputs
+                    TA.getCurrent inputs
             in
             ( { model | pos = pos, inputs = inputs }
             , case ( model.isPlaying, currentInput ) of
@@ -234,38 +234,38 @@ update msg model =
             )
 
         MsgToggleHit hit ->
-            ( model |> withHistory (mapCurrentInputHits (toggleMember hit))
+            ( model |> withHistory ((TA.mapCurrent emptyInput << mapHit) (toggleMember hit))
             , Cmd.none
             )
 
         MsgSetInputKind kind ->
-            ( model |> withHistory (mapCurrentInput (\input -> { input | kind = kind }))
+            ( model |> withHistory (TA.mapCurrent emptyInput (\input -> { input | kind = kind }))
             , Cmd.none
             )
 
         MsgRemoveInput input ->
-            ( model |> withHistory (removeInput input)
+            ( model |> withHistory (TA.remove input)
             , Cmd.none
             )
 
         MsgRemoveCurrentInput ->
-            ( model |> withHistory removeCurrentInput
+            ( model |> withHistory TA.removeCurrent
             , Cmd.none
             )
 
         MsgFocusInput input ->
             ( model
-            , Ports.seek (toFloat input.pos / 60)
+            , Ports.seek (frameToSec input.pos)
             )
 
         MsgPreviousInput ->
             ( model
-            , Ports.seek (getPreviousInputPos model.inputs |> Maybe.map (\v -> toFloat v / 60) |> Maybe.withDefault 0)
+            , Ports.seek (TA.getPrevious model.inputs |> Maybe.map .pos |> Maybe.map frameToSec |> Maybe.withDefault 0)
             )
 
         MsgNextInput ->
             ( model
-            , Ports.seek (getNextInputPos model.inputs |> Maybe.map (\v -> toFloat v / 60) |> Maybe.withDefault model.duration)
+            , Ports.seek (TA.getNext model.inputs |> Maybe.map .pos |> Maybe.map frameToSec |> Maybe.withDefault model.duration)
             )
 
         MsgUndo ->
@@ -356,7 +356,7 @@ update msg model =
                     )
 
         MsgFocusStage stage ->
-            ( { model | currentStage = Just stage, inputs = Inputs.fromList stage.inputs }
+            ( { model | currentStage = Just stage, inputs = stage.inputs }
                 |> resetMode
             , Cmd.none
             )
@@ -432,7 +432,7 @@ subscriptions model =
         ]
 
 
-withHistory : (Inputs -> Inputs) -> Model -> Model
+withHistory : (TimeArray Input -> TimeArray Input) -> Model -> Model
 withHistory function model =
     let
         inputs =
@@ -444,20 +444,42 @@ withHistory function model =
     }
 
 
-applyMoveInHistory : ( History Inputs, Maybe Inputs ) -> Model -> ( Model, Cmd Msg )
+applyMoveInHistory : ( History (TimeArray Input), Maybe (TimeArray Input) ) -> Model -> ( Model, Cmd Msg )
 applyMoveInHistory ( history, maybeInputs ) model =
     let
         inputs =
-            maybeInputs |> Maybe.withDefault empty
+            maybeInputs |> Maybe.withDefault (TA.empty compareInput)
     in
     ( { model | inputs = inputs, history = history }
-    , Ports.seek (toFloat (getPos inputs) / 60)
+    , Ports.seek (frameToSec (TA.getPos inputs))
     )
+
+
+frameToSec frame =
+    toFloat frame / 60
+
+
+secToFrame sec =
+    ceiling (sec * 60)
 
 
 resetMode : Model -> Model
 resetMode model =
     { model | mode = NormalMode }
+
+
+mapHit : (EverySet Hit -> EverySet Hit) -> Input -> Input
+mapHit f input =
+    { input | hits = f input.hits }
+
+
+toggleMember : elem -> EverySet elem -> EverySet elem
+toggleMember elem set =
+    if EverySet.member elem set then
+        EverySet.remove elem set
+
+    else
+        EverySet.insert elem set
 
 
 
@@ -475,7 +497,7 @@ type alias ModelView =
 
 
 type alias InputView =
-    { inputs : Inputs
+    { inputs : List Input
     , hoveredInput : Maybe Input
     , currentInput : Maybe Input
     }
@@ -530,9 +552,9 @@ view model =
         ]
         (mainView
             { inputs =
-                { inputs = model.inputs
+                { inputs = TA.toList model.inputs
                 , hoveredInput = model.hoveredInput
-                , currentInput = getCurrentInput model.inputs
+                , currentInput = TA.getCurrent model.inputs
                 }
             , player =
                 { isPlaying = model.isPlaying
@@ -540,7 +562,7 @@ view model =
                 , duration = model.duration
                 }
             , editor =
-                { currentInput = getCurrentInput model.inputs
+                { currentInput = TA.getCurrent model.inputs
                 }
             , song =
                 { song = model.song
@@ -576,7 +598,7 @@ mainView model =
 inputListView : InputView -> Element Msg
 inputListView model =
     column [ height fill, width (shrink |> minimum 200), scrollbars, aside, spacing 5 ] <|
-        List.indexedMap (inputRowView model) (getInputs model.inputs)
+        List.indexedMap (inputRowView model) model.inputs
 
 
 inputRowView : InputView -> Int -> Input -> Element Msg
