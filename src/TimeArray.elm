@@ -106,15 +106,15 @@ mapCurrent new function (TA model) =
                 |> Maybe.withDefault (new model.pos)
                 |> function
 
-        updatedArray =
+        ( newIndex, updatedArray ) =
             case model.index of
                 At index ->
-                    Array.set index current model.array
+                    ( At index, Array.set index current model.array )
 
                 Before index ->
-                    insertAt index current model.array
+                    ( At index, insertAt index current model.array )
     in
-    TA { model | array = updatedArray, current = Just current }
+    TA { model | array = updatedArray, current = Just current, index = newIndex }
 
 
 remove : i -> TimeArray i -> TimeArray i

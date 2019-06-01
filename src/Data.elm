@@ -3,6 +3,7 @@ module Data exposing (FileResource(..), Game, Hit(..), Input, Kind(..), Level(..
 import Bytes exposing (Bytes)
 import Bytes.Encode as E
 import EverySet exposing (EverySet)
+import Pivot exposing (Pivot)
 import TimeArray exposing (TimeArray)
 
 
@@ -19,7 +20,7 @@ type alias Song =
 
 
 type alias Game =
-    { stages : List Stage
+    { stages : Pivot Stage
     , raw : Maybe Raw
     }
 
@@ -76,7 +77,13 @@ type Kind
 
 emptyGame : Game
 emptyGame =
-    { stages = []
+    { stages =
+        Pivot.singleton
+            { level = Easy
+            , player = P1
+            , maxScore = 0
+            , inputs = TimeArray.empty compareInput
+            }
     , raw = Nothing
     }
 

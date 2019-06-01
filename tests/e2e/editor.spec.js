@@ -30,6 +30,7 @@ context('editor', () => {
     beforeEach(() => {
         cy.visit('/')
         cy.loadSong()
+        cy.newGame()
     })
 
     it('can edit hits using buttons', () => {

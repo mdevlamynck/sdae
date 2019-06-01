@@ -10,9 +10,17 @@ import Data exposing (..)
 import EverySet
 import Expect exposing (Expectation)
 import Fuzz exposing (..)
+import Pivot exposing (Pivot)
 import Random
 import Test exposing (..)
 import TimeArray exposing (TimeArray)
+
+
+pivot : Fuzzer a -> Fuzzer (Pivot a)
+pivot a =
+    map2 Pivot.fromCons
+        a
+        (list a)
 
 
 timeArray : (Int -> a -> Order) -> Fuzzer a -> Fuzzer (TimeArray a)
@@ -24,7 +32,7 @@ timeArray cmp a =
 game : Fuzzer Game
 game =
     map (\stages -> { stages = stages, raw = Just { head = emptyHead, blocks = [] } })
-        (list stage)
+        (pivot stage)
 
 
 stage : Fuzzer Stage

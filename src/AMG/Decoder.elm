@@ -7,6 +7,7 @@ import Bytes.Encode as E
 import Bytes.Parser as P exposing (..)
 import Data exposing (Game, Hit(..), Input, Kind(..), Level(..), Player(..), Stage, compareInput)
 import EverySet exposing (EverySet)
+import Pivot
 import TimeArray
 
 
@@ -50,14 +51,19 @@ decoder =
 
 fileToGame : File -> Parser Game
 fileToGame file =
-    succeed
-        { stages = file.stages
-        , raw =
-            Just
-                { head = file.head
-                , blocks = file.blocks
+    case Pivot.fromList file.stages of
+        Just stages ->
+            succeed
+                { stages = stages
+                , raw =
+                    Just
+                        { head = file.head
+                        , blocks = file.blocks
+                        }
                 }
-        }
+
+        _ ->
+            fail ()
 
 
 body : File -> Parser File

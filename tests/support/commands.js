@@ -29,3 +29,8 @@ Cypress.Commands.add('loadGame', (key) => {
 		cy.contains('Failed to load')
 	})
 })
+
+Cypress.Commands.add('newGame', () => {
+	cy.input('p');
+	cy.input('n');
+})

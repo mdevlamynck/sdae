@@ -5,6 +5,7 @@ import Bytes exposing (..)
 import Bytes.Encode exposing (..)
 import Data exposing (..)
 import EverySet
+import Pivot
 import TimeArray
 
 
@@ -35,7 +36,7 @@ emptyHead =
 stages : Game -> Encoder
 stages game =
     sequence <|
-        List.map stage game.stages
+        List.map stage (Pivot.toList game.stages)
 
 
 stage : Stage -> Encoder

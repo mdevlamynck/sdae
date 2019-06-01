@@ -24,6 +24,7 @@ import History exposing (History)
 import Html exposing (Html)
 import Html.Attributes exposing (style)
 import Keyboard exposing (Mode(..))
+import Pivot exposing (Pivot)
 import Ports
 import Round exposing (round)
 import Task
@@ -67,16 +68,14 @@ type alias Model =
     , duration : Float
 
     -- Editor
-    , inputs : TimeArray Input
-    , history : History (TimeArray Input)
+    , history : History Game
     , hoveredInput : Maybe Input
 
     -- Song
     , song : FileResource Song
 
-    -- Game File
+    -- Game
     , game : FileResource Game
-    , currentStage : Maybe Stage
     }
 
 
@@ -119,7 +118,7 @@ type Msg
     | MsgExportGame
     | MsgGameSelected File
     | MsgGameLoaded Bytes
-    | MsgFocusStage Stage
+    | MsgFocusStage Int
       -- Cypress
     | MsgCypressLoadSong String String
     | MsgCypressLoadGame String
@@ -135,12 +134,10 @@ init _ =
       , isPlaying = False
       , pos = 0
       , duration = 0
-      , inputs = TA.empty compareInput
       , history = History.empty
       , hoveredInput = Nothing
       , song = None
       , game = None
-      , currentStage = Nothing
       }
     , Cmd.none
     )
@@ -154,11 +151,13 @@ update msg model =
             , Cmd.none
             )
 
+        -- Keyboard
         MsgSetMode mode ->
             ( { model | mode = mode }
             , Cmd.none
             )
 
+        -- Commands
         MsgIsPlaying isPlaying ->
             ( { model | isPlaying = isPlaying }
             , Cmd.none
@@ -184,25 +183,36 @@ update msg model =
             )
 
         MsgPos pos ->
-            let
-                frame =
-                    secToFrame pos
+            case model.game of
+                Loaded g ->
+                    let
+                        frame =
+                            secToFrame pos
 
-                inputs =
-                    TA.updatePos frame model.inputs
+                        game =
+                            mapInputs (TA.updatePos frame) g
 
-                currentInput =
-                    TA.getCurrent inputs
-            in
-            ( { model | pos = pos, inputs = inputs }
-            , case ( model.isPlaying, currentInput ) of
-                ( True, Just input ) ->
-                    Ports.scrollIntoView ("input" ++ String.fromInt input.pos)
+                        newModel =
+                            { model | pos = pos, game = Loaded game }
+
+                        currentInput =
+                            TA.getCurrent (getInputs newModel)
+                    in
+                    ( newModel
+                    , case ( newModel.isPlaying, currentInput ) of
+                        ( True, Just input ) ->
+                            Ports.scrollIntoView ("input" ++ String.fromInt input.pos)
+
+                        _ ->
+                            Cmd.none
+                    )
 
                 _ ->
-                    Cmd.none
-            )
+                    ( { model | pos = pos }
+                    , Cmd.none
+                    )
 
+        -- Player
         MsgBegin ->
             ( model
             , Ports.begin
@@ -233,23 +243,24 @@ update msg model =
             , Ports.seek pos
             )
 
+        -- Editor
         MsgToggleHit hit ->
-            ( model |> withHistory ((TA.mapCurrent emptyInput << mapHit) (toggleMember hit))
+            ( model |> withHistory ((mapCurrentInput << mapHit) (toggleMember hit))
             , Cmd.none
             )
 
         MsgSetInputKind kind ->
-            ( model |> withHistory (TA.mapCurrent emptyInput (\input -> { input | kind = kind }))
+            ( model |> withHistory (mapCurrentInput (\input -> { input | kind = kind }))
             , Cmd.none
             )
 
         MsgRemoveInput input ->
-            ( model |> withHistory (TA.remove input)
+            ( model |> withHistory (removeInput input)
             , Cmd.none
             )
 
         MsgRemoveCurrentInput ->
-            ( model |> withHistory TA.removeCurrent
+            ( model |> withHistory removeCurrentInput
             , Cmd.none
             )
 
@@ -260,12 +271,12 @@ update msg model =
 
         MsgPreviousInput ->
             ( model
-            , Ports.seek (TA.getPrevious model.inputs |> Maybe.map .pos |> Maybe.map frameToSec |> Maybe.withDefault 0)
+            , Ports.seek (TA.getPrevious (getInputs model) |> Maybe.map .pos |> Maybe.map frameToSec |> Maybe.withDefault 0)
             )
 
         MsgNextInput ->
             ( model
-            , Ports.seek (TA.getNext model.inputs |> Maybe.map .pos |> Maybe.map frameToSec |> Maybe.withDefault model.duration)
+            , Ports.seek (TA.getNext (getInputs model) |> Maybe.map .pos |> Maybe.map frameToSec |> Maybe.withDefault model.duration)
             )
 
         MsgUndo ->
@@ -284,6 +295,7 @@ update msg model =
             , Cmd.none
             )
 
+        -- Song
         MsgSelectSong ->
             ( model
                 |> resetMode
@@ -306,6 +318,7 @@ update msg model =
             , Ports.load songBase64
             )
 
+        -- Game
         MsgNewGame ->
             ( { model | game = Loaded emptyGame }
                 |> resetMode
@@ -319,7 +332,7 @@ update msg model =
             )
 
         MsgUnloadGame ->
-            ( { model | game = None, currentStage = Nothing }
+            ( { model | game = None }
                 |> resetMode
             , Cmd.none
             )
@@ -355,12 +368,22 @@ update msg model =
                     , Cmd.none
                     )
 
-        MsgFocusStage stage ->
-            ( { model | currentStage = Just stage, inputs = stage.inputs }
+        MsgFocusStage pos ->
+            let
+                newModel =
+                    case model.game of
+                        Loaded game ->
+                            { model | game = Loaded (mapStages (Pivot.withRollback (Pivot.goTo pos)) game) }
+
+                        _ ->
+                            model
+            in
+            ( newModel
                 |> resetMode
             , Cmd.none
             )
 
+        -- Cypress
         MsgCypressLoadSong name content ->
             ( { model | song = Loading { name = name } }
             , Ports.load content
@@ -432,40 +455,75 @@ subscriptions model =
         ]
 
 
-withHistory : (TimeArray Input -> TimeArray Input) -> Model -> Model
-withHistory function model =
-    let
-        inputs =
-            function model.inputs
-    in
-    { model
-        | inputs = inputs
-        , history = History.record inputs model.history
-    }
 
-
-applyMoveInHistory : ( History (TimeArray Input), Maybe (TimeArray Input) ) -> Model -> ( Model, Cmd Msg )
-applyMoveInHistory ( history, maybeInputs ) model =
-    let
-        inputs =
-            maybeInputs |> Maybe.withDefault (TA.empty compareInput)
-    in
-    ( { model | inputs = inputs, history = history }
-    , Ports.seek (frameToSec (TA.getPos inputs))
-    )
-
-
-frameToSec frame =
-    toFloat frame / 60
-
-
-secToFrame sec =
-    ceiling (sec * 60)
+-- Keyboard
 
 
 resetMode : Model -> Model
 resetMode model =
     { model | mode = NormalMode }
+
+
+
+-- Time
+
+
+frameToSec : Int -> Float
+frameToSec frame =
+    toFloat frame / 60
+
+
+secToFrame : Float -> Int
+secToFrame sec =
+    ceiling (sec * 60)
+
+
+
+-- Game
+
+
+getInputs : Model -> TimeArray Input
+getInputs model =
+    case model.game of
+        Loaded g ->
+            Pivot.getC g.stages |> .inputs
+
+        _ ->
+            TA.empty compareInput
+
+
+
+-- Editor
+
+
+mapStages : (Pivot Stage -> Pivot Stage) -> Game -> Game
+mapStages f game =
+    { game | stages = f game.stages }
+
+
+mapStage : (Stage -> Stage) -> Game -> Game
+mapStage f game =
+    { game | stages = Pivot.mapC f game.stages }
+
+
+mapInputs : (TimeArray Input -> TimeArray Input) -> Game -> Game
+mapInputs f =
+    mapStage (\stage -> { stage | inputs = f stage.inputs })
+
+
+mapCurrentInput : (Input -> Input) -> Game -> Game
+mapCurrentInput f =
+    mapInputs (TA.mapCurrent emptyInput f)
+
+
+removeInput : Input -> Game -> Game
+removeInput i =
+    mapInputs (TA.remove i)
+
+
+removeCurrentInput : Game -> Game
+removeCurrentInput =
+    mapInputs TA.removeCurrent
 
 
 mapHit : (EverySet Hit -> EverySet Hit) -> Input -> Input
@@ -480,6 +538,49 @@ toggleMember elem set =
 
     else
         EverySet.insert elem set
+
+
+
+-- History
+
+
+withHistory : (Game -> Game) -> Model -> Model
+withHistory f model =
+    case model.game of
+        Loaded game ->
+            let
+                g =
+                    f game
+            in
+            { model
+                | game = Loaded g
+                , history = History.record g model.history
+            }
+
+        _ ->
+            model
+
+
+applyMoveInHistory : ( History Game, Maybe Game ) -> Model -> ( Model, Cmd Msg )
+applyMoveInHistory ( history, maybeGame ) model =
+    case model.game of
+        Loaded _ ->
+            let
+                game =
+                    maybeGame |> Maybe.withDefault emptyGame
+
+                newModel =
+                    { model
+                        | game = Loaded game
+                        , history = history
+                    }
+            in
+            ( newModel
+            , Ports.seek (frameToSec (TA.getPos (getInputs newModel)))
+            )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 
@@ -522,7 +623,6 @@ type alias SongView =
 
 type alias GameView =
     { game : FileResource Game
-    , currentStage : Maybe Stage
     }
 
 
@@ -552,9 +652,9 @@ view model =
         ]
         (mainView
             { inputs =
-                { inputs = TA.toList model.inputs
+                { inputs = TA.toList (getInputs model)
                 , hoveredInput = model.hoveredInput
-                , currentInput = TA.getCurrent model.inputs
+                , currentInput = TA.getCurrent (getInputs model)
                 }
             , player =
                 { isPlaying = model.isPlaying
@@ -562,14 +662,13 @@ view model =
                 , duration = model.duration
                 }
             , editor =
-                { currentInput = TA.getCurrent model.inputs
+                { currentInput = TA.getCurrent (getInputs model)
                 }
             , song =
                 { song = model.song
                 }
             , game =
                 { game = model.game
-                , currentStage = model.currentStage
                 }
             , status =
                 { mode = model.mode
@@ -962,11 +1061,11 @@ gamePropertiesView model =
 stageSelectionView : GameView -> Game -> Element Msg
 stageSelectionView model { stages } =
     column [ width fill ] <|
-        List.map (stageSelectionRowView model) stages
+        List.map (stageSelectionRowView stages) (Pivot.toList (Pivot.indexAbsolute stages))
 
 
-stageSelectionRowView : GameView -> Stage -> Element Msg
-stageSelectionRowView model stage =
+stageSelectionRowView : Pivot Stage -> ( Int, Stage ) -> Element Msg
+stageSelectionRowView stages ( pos, stage ) =
     let
         level =
             case stage.level of
@@ -991,7 +1090,7 @@ stageSelectionRowView model stage =
                     "P2"
 
         isChecked =
-            model.currentStage == Just stage
+            Pivot.getC stages == stage
     in
     button
         [ width fill
@@ -1000,7 +1099,7 @@ stageSelectionRowView model stage =
         , checked isChecked
         , attrWhen isChecked (Background.color buttonColor)
         ]
-        { onPress = Just (MsgFocusStage stage)
+        { onPress = Just (MsgFocusStage pos)
         , label =
             row [ spacing 20, alignRight ]
                 [ text level
