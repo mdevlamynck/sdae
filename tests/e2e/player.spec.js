@@ -1,9 +1,6 @@
 context('player', () => {
 	beforeEach(() => {
 		cy.visit('/')
-	})
-
-	beforeEach(() => {
 		cy.loadSong()
 	})
 
@@ -85,5 +82,4 @@ context('player', () => {
 		cy.input('ArrowLeft')
 		cy.get('nav input[type="range"]').should('have.prop', 'value').and('be.lt', 10)
 	})
-
 })

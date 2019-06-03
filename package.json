@@ -8,10 +8,10 @@
     "e2e": "cypress run",
     "cypress": "cypress",
     "bench": "elm make tests/Benchmarks.elm --optimize --output bench.html",
-	"amg-test": "parcel build -o amgtester.js --target node --log-level 1 amgtester.js && node dist/amgtester.js"
+    "amg-test": "parcel build -o amgtester.js --target node --log-level 1 amgtester.js && node dist/amgtester.js"
   },
   "devDependencies": {
-    "cypress": "^3.2.0",
+    "cypress": "^3.3.1",
     "elm-format": "^0.8.1",
     "elm-hot": "^1.0.1",
     "node-elm-compiler": "^5.0.3",
