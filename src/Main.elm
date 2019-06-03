@@ -250,7 +250,7 @@ update msg model =
             )
 
         MsgSetInputKind kind ->
-            ( model |> withHistory (mapCurrentInput (\input -> { input | kind = kind }))
+            ( model |> withHistory (mapCurrentInput (setKind kind))
             , Cmd.none
             )
 
@@ -538,6 +538,20 @@ toggleMember elem set =
 
     else
         EverySet.insert elem set
+
+
+setKind : Kind -> Input -> Input
+setKind kind input =
+    { input
+        | kind = kind
+        , duration =
+            case kind of
+                Long ->
+                    60
+
+                _ ->
+                    0
+    }
 
 
 
