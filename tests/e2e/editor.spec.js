@@ -320,7 +320,7 @@ context('editor', () => {
         cy.get('[data-cy="hit 1"]').should('not.exist')
     })
 
-    it('can change kind of input buttons', () => {
+    it('can change kind of input using buttons', () => {
         cy.contains('⏮').click()
 
         cy.get('[data-cy="regular"]').should('have.prop', 'checked', false)
