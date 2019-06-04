@@ -1,7 +1,6 @@
-module Data exposing (FileResource(..), Game, Hit(..), Input, Kind(..), Level(..), Player(..), Raw, Song, Stage, compareInput, emptyGame, emptyInput)
+module Data exposing (FileResource(..), Game, Hit(..), Input, Kind(..), Level(..), Player(..), Raw, Song, Stage, compareInput, emptyGame, emptyInput, mapResource)
 
 import Bytes exposing (Bytes)
-import Bytes.Encode as E
 import EverySet exposing (EverySet)
 import Pivot exposing (Pivot)
 import TimeArray exposing (TimeArray)
@@ -12,6 +11,22 @@ type FileResource f
     | Loading f
     | Loaded f
     | FailedToLoad
+
+
+mapResource : (a -> b) -> FileResource a -> FileResource b
+mapResource f res =
+    case res of
+        Loaded r ->
+            Loaded (f r)
+
+        Loading r ->
+            Loading (f r)
+
+        FailedToLoad ->
+            FailedToLoad
+
+        None ->
+            None
 
 
 type alias Song =

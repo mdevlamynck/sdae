@@ -1,7 +1,6 @@
 module Main exposing (main)
 
 import AMG
-import AMG.Encoder
 import Base64
 import Browser
 import Bytes exposing (Bytes)
@@ -12,7 +11,6 @@ import Element.Border as Border
 import Element.Events exposing (onMouseEnter, onMouseLeave)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, slider, thumb)
-import Element.Keyed as Keyed
 import Element.Lazy exposing (..)
 import Element.Region exposing (aside, mainContent, navigation)
 import Element.Utils exposing (attrWhen, checked, elWhen, id, tag)
@@ -26,7 +24,6 @@ import Html.Attributes exposing (style)
 import Keyboard exposing (Mode(..))
 import Pivot exposing (Pivot)
 import Ports
-import Round exposing (round)
 import Task
 import TimeArray as TA exposing (TimeArray)
 
@@ -59,43 +56,70 @@ type alias Flags =
 
 
 type alias Model =
-    { -- Keyboard
-      mode : Mode
+    { mode : Mode
+    , player : FileResource Player
+    , editor : FileResource Editor
+    }
 
-    -- Player
+
+type alias Player =
+    { song : Song
     , isPlaying : Bool
     , pos : Float
     , duration : Float
+    }
 
-    -- Editor
+
+type alias Editor =
+    { game : Game
     , history : History Game
     , hoveredInput : Maybe Input
-
-    -- Song
-    , song : FileResource Song
-
-    -- Game
-    , game : FileResource Game
     }
 
 
 type Msg
     = MsgNoOp
-      -- Keyboard
-    | MsgSetMode Mode
-      -- Commands
-    | MsgIsPlaying Bool
-    | MsgSongLoaded (Result () Float)
+    | MsgPlayer PlayerMsg
+    | MsgEditor EditorMsg
+    | MsgSong SongMsg
+    | MsgGame GameMsg
     | MsgPos Float
-      -- Player
-    | MsgBegin
+    | MsgSetMode Mode
+    | MsgCypressLoadSong String String
+    | MsgCypressLoadGame String
+
+
+type SongMsg
+    = MsgSelectSong
+    | MsgUnloadSong
+    | MsgSongSelected File
+    | MsgSongContent String
+    | MsgSongLoaded (Result () Float)
+
+
+type PlayerMsg
+    = MsgBegin
     | MsgBackward
     | MsgPlayPause
     | MsgForward
     | MsgEnd
     | MsgSeek Float
-      -- Editor
-    | MsgToggleHit Hit
+    | MsgSeekBefore (Maybe Float)
+    | MsgSeekAfter (Maybe Float)
+    | MsgIsPlaying Bool
+
+
+type GameMsg
+    = MsgNewGame
+    | MsgSelectGame
+    | MsgUnloadGame
+    | MsgExportGame
+    | MsgGameSelected File
+    | MsgGameLoaded Bytes
+
+
+type EditorMsg
+    = MsgToggleHit Hit
     | MsgSetInputKind Kind
     | MsgFocusInput Input
     | MsgRemoveInput Input
@@ -106,22 +130,7 @@ type Msg
     | MsgRedo
     | MsgOnHoverStart Input
     | MsgOnHoverEnd
-      -- Song
-    | MsgSelectSong
-    | MsgUnloadSong
-    | MsgSongSelected File
-    | MsgSongContent String
-      -- Game
-    | MsgNewGame
-    | MsgSelectGame
-    | MsgUnloadGame
-    | MsgExportGame
-    | MsgGameSelected File
-    | MsgGameLoaded Bytes
     | MsgFocusStage Int
-      -- Cypress
-    | MsgCypressLoadSong String String
-    | MsgCypressLoadGame String
 
 
 
@@ -131,16 +140,28 @@ type Msg
 init : Flags -> ( Model, Cmd Msg )
 init _ =
     ( { mode = NormalMode
-      , isPlaying = False
-      , pos = 0
-      , duration = 0
-      , history = History.empty
-      , hoveredInput = Nothing
-      , song = None
-      , game = None
+      , player = None
+      , editor = None
       }
     , Cmd.none
     )
+
+
+initPlayer : Song -> Player
+initPlayer song =
+    { song = song
+    , isPlaying = False
+    , pos = 0
+    , duration = 0
+    }
+
+
+initEditor : Game -> Editor
+initEditor game =
+    { game = game
+    , history = History.empty
+    , hoveredInput = Nothing
+    }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -151,68 +172,115 @@ update msg model =
             , Cmd.none
             )
 
-        -- Keyboard
+        MsgSong subMsg ->
+            updateResource updateSong subMsg .player (\player m -> { m | player = player }) model
+                |> resetMode
+
+        MsgPlayer subMsg ->
+            updateInResource updatePlayer subMsg .player (\player m -> { m | player = player }) model
+
+        MsgGame subMsg ->
+            updateResource updateGame subMsg .editor (\editor m -> { m | editor = editor }) model
+                |> resetMode
+
+        MsgEditor subMsg ->
+            updateInResource updateEditor subMsg .editor (\editor m -> { m | editor = editor }) model
+
         MsgSetMode mode ->
             ( { model | mode = mode }
             , Cmd.none
             )
 
-        -- Commands
-        MsgIsPlaying isPlaying ->
-            ( { model | isPlaying = isPlaying }
-            , Cmd.none
+        MsgCypressLoadSong name content ->
+            ( { model | player = Loading (initPlayer { name = name }) }
+            , Ports.load content
             )
 
-        MsgSongLoaded result ->
-            ( case result of
-                Ok duration ->
-                    { model
-                        | duration = duration
-                        , song =
-                            case model.song of
-                                Loading file ->
-                                    Loaded file
+        MsgCypressLoadGame content ->
+            case Base64.toBytes content of
+                Just bytes ->
+                    update (MsgGame (MsgGameLoaded bytes)) model
 
-                                resource ->
-                                    resource
-                    }
-
-                Err _ ->
-                    { model | song = FailedToLoad }
-            , Cmd.none
-            )
-
-        MsgPos pos ->
-            case model.game of
-                Loaded g ->
-                    let
-                        frame =
-                            secToFrame pos
-
-                        game =
-                            mapInputs (TA.updatePos frame) g
-
-                        newModel =
-                            { model | pos = pos, game = Loaded game }
-
-                        currentInput =
-                            TA.getCurrent (getInputs newModel)
-                    in
-                    ( newModel
-                    , case ( newModel.isPlaying, currentInput ) of
-                        ( True, Just input ) ->
-                            Ports.scrollIntoView ("input" ++ String.fromInt input.pos)
-
-                        _ ->
-                            Cmd.none
-                    )
-
-                _ ->
-                    ( { model | pos = pos }
+                Nothing ->
+                    ( model
                     , Cmd.none
                     )
 
-        -- Player
+        MsgPos pos ->
+            case model.player of
+                Loaded player ->
+                    let
+                        newPlayer =
+                            Loaded { player | pos = pos }
+
+                        ( newEditor, cmds ) =
+                            case model.editor of
+                                Loaded editor ->
+                                    let
+                                        newGame =
+                                            mapInputs (TA.updatePos (secToFrame pos)) editor.game
+                                    in
+                                    ( Loaded { editor | game = newGame }
+                                    , case ( player.isPlaying, TA.getCurrent (getInputs { editor | game = newGame }) ) of
+                                        ( True, Just input ) ->
+                                            Ports.scrollIntoView ("input" ++ String.fromInt input.pos)
+
+                                        _ ->
+                                            Cmd.none
+                                    )
+
+                                _ ->
+                                    ( model.editor
+                                    , Cmd.none
+                                    )
+                    in
+                    ( { model | player = newPlayer, editor = newEditor }
+                    , cmds
+                    )
+
+                _ ->
+                    ( model
+                    , Cmd.none
+                    )
+
+
+updateSong : SongMsg -> FileResource Player -> ( FileResource Player, Cmd Msg )
+updateSong msg model =
+    case msg of
+        MsgSelectSong ->
+            ( model
+            , Select.file [] (MsgSong << MsgSongSelected)
+            )
+
+        MsgUnloadSong ->
+            ( None
+            , Ports.unload
+            )
+
+        MsgSongSelected file ->
+            ( Loading (initPlayer { name = File.name file })
+            , Task.perform (MsgSong << MsgSongContent) (File.toUrl file)
+            )
+
+        MsgSongContent songBase64 ->
+            ( model
+            , Ports.load songBase64
+            )
+
+        MsgSongLoaded result ->
+            ( case ( result, model ) of
+                ( Ok duration, Loading song ) ->
+                    Loaded { song | duration = duration, song = song.song }
+
+                _ ->
+                    FailedToLoad
+            , Cmd.none
+            )
+
+
+updatePlayer : PlayerMsg -> Player -> ( Player, Cmd Msg )
+updatePlayer msg model =
+    case msg of
         MsgBegin ->
             ( model
             , Ports.begin
@@ -243,7 +311,73 @@ update msg model =
             , Ports.seek pos
             )
 
-        -- Editor
+        MsgSeekBefore pos ->
+            ( model
+            , Ports.seek (Maybe.withDefault 0 pos)
+            )
+
+        MsgSeekAfter pos ->
+            ( model
+            , Ports.seek (Maybe.withDefault model.duration pos)
+            )
+
+        MsgIsPlaying isPlaying ->
+            ( { model | isPlaying = isPlaying }
+            , Cmd.none
+            )
+
+
+updateGame : GameMsg -> FileResource Editor -> ( FileResource Editor, Cmd Msg )
+updateGame msg model =
+    case msg of
+        MsgNewGame ->
+            ( Loaded (initEditor emptyGame)
+            , Cmd.none
+            )
+
+        MsgSelectGame ->
+            ( model
+            , Select.file [] (MsgGame << MsgGameSelected)
+            )
+
+        MsgUnloadGame ->
+            ( None
+            , Cmd.none
+            )
+
+        MsgExportGame ->
+            case model of
+                Loaded editor ->
+                    ( model
+                    , Download.bytes "song.AMG" "application/octet-stream" (AMG.encode editor.game)
+                    )
+
+                _ ->
+                    ( model
+                    , Cmd.none
+                    )
+
+        MsgGameSelected file ->
+            ( model
+            , Task.perform (MsgGame << MsgGameLoaded) (File.toBytes file)
+            )
+
+        MsgGameLoaded bytes ->
+            case AMG.decode bytes of
+                Just game ->
+                    ( Loaded (initEditor game)
+                    , Cmd.none
+                    )
+
+                Nothing ->
+                    ( FailedToLoad
+                    , Cmd.none
+                    )
+
+
+updateEditor : EditorMsg -> Editor -> ( Editor, Cmd Msg )
+updateEditor msg model =
+    case msg of
         MsgToggleHit hit ->
             ( model |> withHistory ((mapCurrentInput << mapHit) (toggleMember hit))
             , Cmd.none
@@ -271,12 +405,12 @@ update msg model =
 
         MsgPreviousInput ->
             ( model
-            , Ports.seek (TA.getPrevious (getInputs model) |> Maybe.map .pos |> Maybe.map frameToSec |> Maybe.withDefault 0)
+            , send ((MsgPlayer << MsgSeekBefore) (TA.getPrevious (getInputs model) |> Maybe.map .pos |> Maybe.map frameToSec))
             )
 
         MsgNextInput ->
             ( model
-            , Ports.seek (TA.getNext (getInputs model) |> Maybe.map .pos |> Maybe.map frameToSec |> Maybe.withDefault model.duration)
+            , send ((MsgPlayer << MsgSeekAfter) (TA.getNext (getInputs model) |> Maybe.map .pos |> Maybe.map frameToSec))
             )
 
         MsgUndo ->
@@ -295,157 +429,60 @@ update msg model =
             , Cmd.none
             )
 
-        -- Song
-        MsgSelectSong ->
-            ( model
-                |> resetMode
-            , Select.file [] MsgSongSelected
-            )
-
-        MsgUnloadSong ->
-            ( { model | song = None }
-                |> resetMode
-            , Ports.unload
-            )
-
-        MsgSongSelected file ->
-            ( { model | song = Loading { name = File.name file } }
-            , Task.perform MsgSongContent (File.toUrl file)
-            )
-
-        MsgSongContent songBase64 ->
-            ( model
-            , Ports.load songBase64
-            )
-
-        -- Game
-        MsgNewGame ->
-            ( { model | game = Loaded emptyGame }
-                |> resetMode
-            , Cmd.none
-            )
-
-        MsgSelectGame ->
-            ( model
-                |> resetMode
-            , Select.file [] MsgGameSelected
-            )
-
-        MsgUnloadGame ->
-            ( { model | game = None }
-                |> resetMode
-            , Cmd.none
-            )
-
-        MsgExportGame ->
-            case model.game of
-                Loaded game ->
-                    ( model
-                        |> resetMode
-                    , Download.bytes "song.AMG" "application/octet-stream" (AMG.encode game)
-                    )
-
-                _ ->
-                    ( model
-                        |> resetMode
-                    , Cmd.none
-                    )
-
-        MsgGameSelected file ->
-            ( model
-            , Task.perform MsgGameLoaded (File.toBytes file)
-            )
-
-        MsgGameLoaded bytes ->
-            case AMG.decode bytes of
-                Just game ->
-                    ( { model | game = Loaded game }
-                    , Cmd.none
-                    )
-
-                Nothing ->
-                    ( { model | game = FailedToLoad }
-                    , Cmd.none
-                    )
-
         MsgFocusStage pos ->
-            let
-                newModel =
-                    case model.game of
-                        Loaded game ->
-                            { model | game = Loaded (mapStages (Pivot.withRollback (Pivot.goTo pos)) game) }
-
-                        _ ->
-                            model
-            in
-            ( newModel
-                |> resetMode
+            ( { model | game = mapStages (Pivot.withRollback (Pivot.goTo pos)) model.game }
             , Cmd.none
             )
-
-        -- Cypress
-        MsgCypressLoadSong name content ->
-            ( { model | song = Loading { name = name } }
-            , Ports.load content
-            )
-
-        MsgCypressLoadGame content ->
-            case Base64.toBytes content of
-                Just bytes ->
-                    update (MsgGameLoaded bytes) model
-
-                Nothing ->
-                    ( model, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
     let
         openSong =
-            case model.song of
+            case model.player of
                 None ->
-                    MsgSelectSong
+                    MsgSong MsgSelectSong
 
                 FailedToLoad ->
-                    MsgSelectSong
+                    MsgSong MsgSelectSong
 
                 _ ->
-                    MsgUnloadSong
+                    MsgSong MsgUnloadSong
 
         openGame =
-            case model.game of
+            case model.editor of
                 None ->
-                    MsgSelectGame
+                    MsgGame MsgSelectGame
 
                 FailedToLoad ->
-                    MsgSelectGame
+                    MsgGame MsgSelectGame
 
                 _ ->
-                    MsgUnloadGame
+                    MsgGame MsgUnloadGame
     in
     Sub.batch
         [ Ports.subscriptions
             { invalidCommand = MsgNoOp
-            , isPlaying = MsgIsPlaying
-            , songLoaded = MsgSongLoaded
+            , isPlaying = MsgPlayer << MsgIsPlaying
+            , songLoaded = MsgSong << MsgSongLoaded
             , pos = MsgPos
             }
         , Keyboard.subscriptions model.mode
-            { playPause = MsgPlayPause
-            , backward = MsgBackward
-            , forward = MsgForward
-            , toggleHit = MsgToggleHit
-            , previousInput = MsgPreviousInput
-            , nextInput = MsgNextInput
-            , deleteCurrentInput = MsgRemoveCurrentInput
-            , undo = MsgUndo
-            , redo = MsgRedo
-            , mode = MsgSetMode
+            { mode = MsgSetMode
             , openSong = openSong
+            , playPause = MsgPlayer MsgPlayPause
+            , backward = MsgPlayer MsgBackward
+            , forward = MsgPlayer MsgForward
             , openGame = openGame
-            , newGame = MsgNewGame
-            , exportGame = MsgExportGame
-            , setKind = MsgSetInputKind
+            , newGame = MsgGame MsgNewGame
+            , exportGame = MsgGame MsgExportGame
+            , toggleHit = MsgEditor << MsgToggleHit
+            , setKind = MsgEditor << MsgSetInputKind
+            , previousInput = MsgEditor MsgPreviousInput
+            , nextInput = MsgEditor MsgNextInput
+            , deleteCurrentInput = MsgEditor MsgRemoveCurrentInput
+            , undo = MsgEditor MsgUndo
+            , redo = MsgEditor MsgRedo
             }
         , Ports.cypressSubscriptions
             { invalidCommand = MsgNoOp
@@ -456,12 +493,64 @@ subscriptions model =
 
 
 
+-- Update utils
+
+
+updateResource :
+    (msg -> FileResource model -> ( FileResource model, Cmd Msg ))
+    -> msg
+    -> (Model -> FileResource model)
+    -> (FileResource model -> Model -> Model)
+    -> Model
+    -> ( Model, Cmd Msg )
+updateResource f msg get set model =
+    let
+        ( newSubModel, cmds ) =
+            f msg (get model)
+    in
+    ( model |> set newSubModel
+    , cmds
+    )
+
+
+updateInResource :
+    (msg -> model -> ( model, Cmd Msg ))
+    -> msg
+    -> (Model -> FileResource model)
+    -> (FileResource model -> Model -> Model)
+    -> Model
+    -> ( Model, Cmd Msg )
+updateInResource f msg get set model =
+    case get model of
+        Loaded subModel ->
+            let
+                ( newSubModel, cmds ) =
+                    f msg subModel
+            in
+            ( model |> set (Loaded newSubModel)
+            , cmds
+            )
+
+        _ ->
+            ( model
+            , Cmd.none
+            )
+
+
+send : Msg -> Cmd Msg
+send msg =
+    Task.perform identity (Task.succeed msg)
+
+
+
 -- Keyboard
 
 
-resetMode : Model -> Model
-resetMode model =
-    { model | mode = NormalMode }
+resetMode : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+resetMode ( model, cmds ) =
+    ( { model | mode = NormalMode }
+    , cmds
+    )
 
 
 
@@ -482,14 +571,9 @@ secToFrame sec =
 -- Game
 
 
-getInputs : Model -> TimeArray Input
+getInputs : Editor -> TimeArray Input
 getInputs model =
-    case model.game of
-        Loaded g ->
-            Pivot.getC g.stages |> .inputs
-
-        _ ->
-            TA.empty compareInput
+    Pivot.getC model.game.stages |> .inputs
 
 
 
@@ -558,43 +642,27 @@ setKind kind input =
 -- History
 
 
-withHistory : (Game -> Game) -> Model -> Model
+withHistory : (Game -> Game) -> Editor -> Editor
 withHistory f model =
-    case model.game of
-        Loaded game ->
-            let
-                g =
-                    f game
-            in
-            { model
-                | game = Loaded g
-                , history = History.record g model.history
-            }
-
-        _ ->
-            model
+    let
+        g =
+            f model.game
+    in
+    { model | game = g, history = History.record g model.history }
 
 
-applyMoveInHistory : ( History Game, Maybe Game ) -> Model -> ( Model, Cmd Msg )
+applyMoveInHistory : ( History Game, Maybe Game ) -> Editor -> ( Editor, Cmd Msg )
 applyMoveInHistory ( history, maybeGame ) model =
-    case model.game of
-        Loaded _ ->
-            let
-                game =
-                    maybeGame |> Maybe.withDefault emptyGame
+    let
+        game =
+            maybeGame |> Maybe.withDefault emptyGame
 
-                newModel =
-                    { model
-                        | game = Loaded game
-                        , history = history
-                    }
-            in
-            ( newModel
-            , Ports.seek (frameToSec (TA.getPos (getInputs newModel)))
-            )
-
-        _ ->
-            ( model, Cmd.none )
+        newModel =
+            { model | game = game, history = history }
+    in
+    ( newModel
+    , Ports.seek (frameToSec (TA.getPos (getInputs newModel)))
+    )
 
 
 
@@ -647,6 +715,38 @@ type alias StatusView =
 
 view : Model -> Html Msg
 view model =
+    let
+        song =
+            mapResource .song model.player
+
+        game =
+            mapResource .game model.editor
+
+        player =
+            case model.player of
+                Loaded p ->
+                    { isPlaying = p.isPlaying
+                    , pos = p.pos
+                    , duration = p.duration
+                    }
+
+                _ ->
+                    { isPlaying = False
+                    , pos = 0
+                    , duration = 0
+                    }
+
+        editor =
+            case model.editor of
+                Loaded e ->
+                    e
+
+                _ ->
+                    initEditor emptyGame
+
+        inputs =
+            getInputs editor
+    in
     layoutWith
         { options =
             [ focusStyle
@@ -666,23 +766,19 @@ view model =
         ]
         (mainView
             { inputs =
-                { inputs = TA.toList (getInputs model)
-                , hoveredInput = model.hoveredInput
-                , currentInput = TA.getCurrent (getInputs model)
+                { inputs = TA.toList inputs
+                , hoveredInput = editor.hoveredInput
+                , currentInput = TA.getCurrent inputs
                 }
-            , player =
-                { isPlaying = model.isPlaying
-                , pos = model.pos
-                , duration = model.duration
-                }
+            , player = player
             , editor =
-                { currentInput = TA.getCurrent (getInputs model)
+                { currentInput = TA.getCurrent inputs
                 }
             , song =
-                { song = model.song
+                { song = song
                 }
             , game =
-                { game = model.game
+                { game = game
                 }
             , status =
                 { mode = model.mode
@@ -727,11 +823,11 @@ inputRowView model pos input =
         , tag ("hit " ++ String.fromInt (pos + 1))
         , checked isChecked
         , attrWhen isChecked (Background.color buttonColor)
-        , onMouseEnter (MsgOnHoverStart input)
-        , onMouseLeave MsgOnHoverEnd
+        , onMouseEnter (MsgEditor (MsgOnHoverStart input))
+        , onMouseLeave (MsgEditor MsgOnHoverEnd)
         ]
         [ button [ width fill, height fill ]
-            { onPress = Just (MsgFocusInput input)
+            { onPress = Just (MsgEditor (MsgFocusInput input))
             , label =
                 text
                     (String.fromInt input.pos
@@ -745,7 +841,7 @@ inputRowView model pos input =
             }
         , elWhen (model.hoveredInput == Just input) <|
             button [ alignRight, height fill ]
-                { onPress = Just (MsgRemoveInput input)
+                { onPress = Just (MsgEditor (MsgRemoveInput input))
                 , label = text "❌"
                 }
         ]
@@ -768,7 +864,7 @@ playerView model =
 beginBtn : Element Msg
 beginBtn =
     button []
-        { onPress = Just MsgBegin
+        { onPress = Just (MsgPlayer MsgBegin)
         , label = text "⏮"
         }
 
@@ -776,7 +872,7 @@ beginBtn =
 backwardBtn : Element Msg
 backwardBtn =
     button []
-        { onPress = Just MsgBackward
+        { onPress = Just (MsgPlayer MsgBackward)
         , label = text "⏪"
         }
 
@@ -784,7 +880,7 @@ backwardBtn =
 playPauseBtn : Bool -> Element Msg
 playPauseBtn isPlaying =
     button []
-        { onPress = Just MsgPlayPause
+        { onPress = Just (MsgPlayer MsgPlayPause)
         , label =
             text <|
                 if isPlaying then
@@ -798,7 +894,7 @@ playPauseBtn isPlaying =
 forwardBtn : Element Msg
 forwardBtn =
     button []
-        { onPress = Just MsgForward
+        { onPress = Just (MsgPlayer MsgForward)
         , label = text "⏩"
         }
 
@@ -806,7 +902,7 @@ forwardBtn =
 endBtn : Element Msg
 endBtn =
     button []
-        { onPress = Just MsgEnd
+        { onPress = Just (MsgPlayer MsgEnd)
         , label = text "⏭"
         }
 
@@ -815,7 +911,7 @@ progressBarView : PlayerView -> Element Msg
 progressBarView model =
     el [ width fill ] <|
         slider [ Background.color buttonColor, Border.rounded 8 ]
-            { onChange = MsgSeek
+            { onChange = MsgPlayer << MsgSeek
             , label = labelHidden "progress"
             , min = 0
             , max = model.duration
@@ -882,15 +978,15 @@ hitPropertiesView input =
         , row [ width fill, padding 20, spaceEvenly ]
             [ button
                 (properties Regular)
-                { onPress = Just (MsgSetInputKind Regular)
+                { onPress = Just (MsgEditor (MsgSetInputKind Regular))
                 , label = text "Regular"
                 }
             , button (properties Long)
-                { onPress = Just (MsgSetInputKind Long)
+                { onPress = Just (MsgEditor (MsgSetInputKind Long))
                 , label = text "Long"
                 }
             , button (properties Pose)
-                { onPress = Just (MsgSetInputKind Pose)
+                { onPress = Just (MsgEditor (MsgSetInputKind Pose))
                 , label = text "Pose"
                 }
             ]
@@ -961,7 +1057,7 @@ hitButton hit input =
             , Font.size 20
             , checked True
             ]
-            { onPress = Just (MsgToggleHit hit)
+            { onPress = Just (MsgEditor (MsgToggleHit hit))
             , label = text key
             }
 
@@ -977,7 +1073,7 @@ hitButton hit input =
             , Font.size 20
             , checked False
             ]
-            { onPress = Just (MsgToggleHit hit)
+            { onPress = Just (MsgEditor (MsgToggleHit hit))
             , label = text key
             }
 
@@ -996,7 +1092,7 @@ songPropertiesView model =
         None ->
             el [ centerX ] <|
                 button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-                    { onPress = Just MsgSelectSong
+                    { onPress = Just (MsgSong MsgSelectSong)
                     , label = text "o: Select Song"
                     }
 
@@ -1008,7 +1104,7 @@ songPropertiesView model =
             column [ centerX, spacing 10 ] <|
                 [ el [ centerX ] <| text song.name
                 , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-                    { onPress = Just MsgUnloadSong
+                    { onPress = Just (MsgSong MsgUnloadSong)
                     , label = text "o: Unload Song"
                     }
                 ]
@@ -1017,7 +1113,7 @@ songPropertiesView model =
             column [ centerX, spacing 10 ] <|
                 [ el [ centerX ] <|
                     button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-                        { onPress = Just MsgSelectSong
+                        { onPress = Just (MsgSong MsgSelectSong)
                         , label = text "o: Select Song"
                         }
                 , el [ centerX ] <|
@@ -1031,11 +1127,11 @@ gamePropertiesView model =
         None ->
             column [ centerX, spacing 10 ] <|
                 [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-                    { onPress = Just MsgSelectGame
+                    { onPress = Just (MsgGame MsgSelectGame)
                     , label = text "g: Select Game file"
                     }
                 , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-                    { onPress = Just MsgNewGame
+                    { onPress = Just (MsgGame MsgNewGame)
                     , label = text "n: New Game file"
                     }
                 ]
@@ -1047,11 +1143,11 @@ gamePropertiesView model =
         Loaded game ->
             column [ centerX, spacing 10 ] <|
                 [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-                    { onPress = Just MsgExportGame
+                    { onPress = Just (MsgGame MsgExportGame)
                     , label = text "x: Export Game"
                     }
                 , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-                    { onPress = Just MsgUnloadGame
+                    { onPress = Just (MsgGame MsgUnloadGame)
                     , label = text "g: Unload Game"
                     }
                 , stageSelectionView model game
@@ -1060,11 +1156,11 @@ gamePropertiesView model =
         FailedToLoad ->
             column [ centerX, spacing 10 ] <|
                 [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-                    { onPress = Just MsgSelectGame
+                    { onPress = Just (MsgGame MsgSelectGame)
                     , label = text "g: Select Game file"
                     }
                 , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-                    { onPress = Just MsgNewGame
+                    { onPress = Just (MsgGame MsgNewGame)
                     , label = text "n: New Game file"
                     }
                 , el [ centerX ] <|
@@ -1113,7 +1209,7 @@ stageSelectionRowView stages ( pos, stage ) =
         , checked isChecked
         , attrWhen isChecked (Background.color buttonColor)
         ]
-        { onPress = Just (MsgFocusStage pos)
+        { onPress = Just (MsgEditor (MsgFocusStage pos))
         , label =
             row [ spacing 20, alignRight ]
                 [ text level

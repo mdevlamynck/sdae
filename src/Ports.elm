@@ -2,7 +2,7 @@ port module Ports exposing (backward, begin, cypressSubscriptions, end, forward,
 
 import Json.Decode as D exposing (Decoder, andThen, decodeValue, fail, field)
 import Json.Decode.Pipeline exposing (required)
-import Json.Encode as E exposing (Value, bool, float, object, string)
+import Json.Encode as E exposing (Value, float, object, string)
 
 
 port toJs : Value -> Cmd msg
