@@ -4,7 +4,7 @@ import AMG.Bitwise exposing (..)
 import Bytes exposing (..)
 import Bytes.Encode exposing (..)
 import Data exposing (..)
-import EverySet
+import EverySet exposing (EverySet)
 import Pivot
 import TimeArray
 
@@ -112,42 +112,55 @@ block name body =
 input : Input -> Encoder
 input i =
     case i.kind of
+        Regular ->
+            sequence
+                [ dword i.pos
+                , dword (cmd KindRegular i.hits)
+                ]
+
+        Pose ->
+            sequence
+                [ dword i.pos
+                , dword (cmd KindPose i.hits)
+                ]
+
         Long ->
             sequence
                 [ dword i.pos
-                , dword (cmd i)
+                , dword (cmd KindLongStart i.hits)
                 , dword (i.pos + i.duration)
-                , dword 8
-                ]
-
-        _ ->
-            sequence
-                [ dword i.pos
-                , dword (cmd i)
+                , dword (cmd KindLongEnd i.hits)
                 ]
 
 
-cmd : Input -> Int
-cmd i =
-    let
-        kind =
-            case i.kind of
-                Regular ->
-                    1
+type Kind
+    = KindRegular
+    | KindPose
+    | KindLongStart
+    | KindLongEnd
 
-                Pose ->
-                    4
 
-                Long ->
-                    3
-    in
-    kind
-        |> set 4 (EverySet.member LeftUp i.hits)
-        |> set 5 (EverySet.member LeftMiddle i.hits)
-        |> set 6 (EverySet.member LeftDown i.hits)
-        |> set 7 (EverySet.member RightUp i.hits)
-        |> set 8 (EverySet.member RightMiddle i.hits)
-        |> set 9 (EverySet.member RightDown i.hits)
+cmd : Kind -> EverySet Hit -> Int
+cmd kind hits =
+    (case kind of
+        KindRegular ->
+            1
+
+        KindPose ->
+            4
+
+        KindLongStart ->
+            3
+
+        KindLongEnd ->
+            8
+    )
+        |> set 4 (EverySet.member LeftUp hits)
+        |> set 5 (EverySet.member LeftMiddle hits)
+        |> set 6 (EverySet.member LeftDown hits)
+        |> set 7 (EverySet.member RightUp hits)
+        |> set 8 (EverySet.member RightMiddle hits)
+        |> set 9 (EverySet.member RightDown hits)
 
 
 end : Encoder
