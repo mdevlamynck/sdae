@@ -5,6 +5,7 @@ import Bytes exposing (..)
 import Bytes.Encode exposing (..)
 import Data exposing (..)
 import EverySet exposing (EverySet)
+import List.Extra as List
 import Pivot
 import TimeArray
 
@@ -15,7 +16,7 @@ encoder game =
         ( head, blocks ) =
             case game.raw of
                 Just raw ->
-                    ( raw.head, raw.blocks )
+                    ( emptyHead, raw.blocks )
 
                 Nothing ->
                     ( emptyHead, [] )

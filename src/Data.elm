@@ -94,7 +94,7 @@ emptyGame : Game
 emptyGame =
     { stages =
         Pivot.singleton
-            { level = Easy
+            { level = Normal
             , player = P1
             , maxScore = 0
             , inputs = TimeArray.empty compareInput
