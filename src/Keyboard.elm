@@ -30,6 +30,7 @@ type alias Commands msg =
     , openGame : msg
     , newGame : msg
     , exportGame : msg
+    , deleteCurrentStage : msg
     }
 
 
@@ -152,8 +153,11 @@ commandDecoder mode commands =
                             ( _, "n", None ) ->
                                 succeed <| commands.newGame
 
-                            ( _, "x", None ) ->
+                            ( _, "e", None ) ->
                                 succeed <| commands.exportGame
+
+                            ( _, "x", None ) ->
+                                succeed <| commands.deleteCurrentStage
 
                             ( "Escape", _, None ) ->
                                 succeed <| commands.mode NormalMode

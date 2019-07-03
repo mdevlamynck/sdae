@@ -74,6 +74,7 @@ type alias Editor =
     { game : Game
     , history : History Game
     , hoveredInput : Maybe Input
+    , hoveredStage : Maybe Stage
     }
 
 
@@ -128,9 +129,13 @@ type EditorMsg
     | MsgNextInput
     | MsgUndo
     | MsgRedo
-    | MsgOnHoverStart Input
-    | MsgOnHoverEnd
+    | MsgOnInputHoverStart Input
+    | MsgOnInputHoverEnd
+    | MsgOnStageHoverStart Stage
+    | MsgOnStageHoverEnd
     | MsgFocusStage Int
+    | MsgRemoveStage Stage
+    | MsgRemoveCurrentStage
 
 
 
@@ -161,6 +166,7 @@ initEditor game =
     { game = game
     , history = History.empty
     , hoveredInput = Nothing
+    , hoveredStage = Nothing
     }
 
 
@@ -178,6 +184,7 @@ update msg model =
 
         MsgPlayer subMsg ->
             updateInResource updatePlayer subMsg .player (\player m -> { m | player = player }) model
+                |> resetMode
 
         MsgGame subMsg ->
             updateResource updateGame subMsg .editor (\editor m -> { m | editor = editor }) model
@@ -185,6 +192,7 @@ update msg model =
 
         MsgEditor subMsg ->
             updateInResource updateEditor subMsg .editor (\editor m -> { m | editor = editor }) model
+                |> resetMode
 
         MsgSetMode mode ->
             ( { model | mode = mode }
@@ -419,18 +427,38 @@ updateEditor msg model =
         MsgRedo ->
             model |> applyMoveInHistory (History.redo model.history)
 
-        MsgOnHoverStart input ->
+        MsgOnInputHoverStart input ->
             ( { model | hoveredInput = Just input }
             , Cmd.none
             )
 
-        MsgOnHoverEnd ->
+        MsgOnInputHoverEnd ->
             ( { model | hoveredInput = Nothing }
+            , Cmd.none
+            )
+
+        MsgOnStageHoverStart stage ->
+            ( { model | hoveredStage = Just stage }
+            , Cmd.none
+            )
+
+        MsgOnStageHoverEnd ->
+            ( { model | hoveredStage = Nothing }
             , Cmd.none
             )
 
         MsgFocusStage pos ->
             ( { model | game = mapStages (Pivot.withRollback (Pivot.goTo pos)) model.game }
+            , Cmd.none
+            )
+
+        MsgRemoveStage stage ->
+            ( { model | game = mapStages (pivotRemoveElement stage) model.game }
+            , Cmd.none
+            )
+
+        MsgRemoveCurrentStage ->
+            ( { model | game = mapStages pivotRemoveCurrentElement model.game }
             , Cmd.none
             )
 
@@ -476,6 +504,7 @@ subscriptions model =
             , openGame = openGame
             , newGame = MsgGame MsgNewGame
             , exportGame = MsgGame MsgExportGame
+            , deleteCurrentStage = MsgEditor MsgRemoveCurrentStage
             , toggleHit = MsgEditor << MsgToggleHit
             , setKind = MsgEditor << MsgSetInputKind
             , previousInput = MsgEditor MsgPreviousInput
@@ -574,6 +603,23 @@ secToFrame sec =
 getInputs : Editor -> TimeArray Input
 getInputs model =
     Pivot.getC model.game.stages |> .inputs
+
+
+pivotRemoveElement : Stage -> Pivot Stage -> Pivot Stage
+pivotRemoveElement stage =
+    Pivot.withRollback <|
+        Pivot.toList
+            >> List.filter ((/=) stage)
+            >> Pivot.fromList
+
+
+pivotRemoveCurrentElement : Pivot Stage -> Pivot Stage
+pivotRemoveCurrentElement stages =
+    let
+        stage =
+            Pivot.getC stages
+    in
+    pivotRemoveElement stage stages
 
 
 
@@ -705,6 +751,7 @@ type alias SongView =
 
 type alias GameView =
     { game : FileResource Game
+    , hoveredStage : Maybe Stage
     }
 
 
@@ -779,6 +826,7 @@ view model =
                 }
             , game =
                 { game = game
+                , hoveredStage = editor.hoveredStage
                 }
             , status =
                 { mode = model.mode
@@ -823,8 +871,8 @@ inputRowView model pos input =
         , tag ("hit " ++ String.fromInt (pos + 1))
         , checked isChecked
         , attrWhen isChecked (Background.color buttonColor)
-        , onMouseEnter (MsgEditor (MsgOnHoverStart input))
-        , onMouseLeave (MsgEditor MsgOnHoverEnd)
+        , onMouseEnter (MsgEditor (MsgOnInputHoverStart input))
+        , onMouseLeave (MsgEditor MsgOnInputHoverEnd)
         ]
         [ button [ width fill, height fill ]
             { onPress = Just (MsgEditor (MsgFocusInput input))
@@ -1144,7 +1192,7 @@ gamePropertiesView model =
             column [ centerX, spacing 10 ] <|
                 [ button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
                     { onPress = Just (MsgGame MsgExportGame)
-                    , label = text "x: Export Game"
+                    , label = text "e: Export Game"
                     }
                 , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
                     { onPress = Just (MsgGame MsgUnloadGame)
@@ -1171,11 +1219,11 @@ gamePropertiesView model =
 stageSelectionView : GameView -> Game -> Element Msg
 stageSelectionView model { stages } =
     column [ width fill ] <|
-        List.map (stageSelectionRowView stages) (Pivot.toList (Pivot.indexAbsolute stages))
+        List.map (stageSelectionRowView model stages) (Pivot.toList (Pivot.indexAbsolute stages))
 
 
-stageSelectionRowView : Pivot Stage -> ( Int, Stage ) -> Element Msg
-stageSelectionRowView stages ( pos, stage ) =
+stageSelectionRowView : GameView -> Pivot Stage -> ( Int, Stage ) -> Element Msg
+stageSelectionRowView model stages ( pos, stage ) =
     let
         level =
             case stage.level of
@@ -1202,21 +1250,30 @@ stageSelectionRowView stages ( pos, stage ) =
         isChecked =
             Pivot.getC stages == stage
     in
-    button
+    row
         [ width fill
         , padding 5
         , tag ("stage " ++ String.toLower level ++ " " ++ String.toLower player)
         , checked isChecked
         , attrWhen isChecked (Background.color buttonColor)
+        , onMouseEnter (MsgEditor (MsgOnStageHoverStart stage))
+        , onMouseLeave (MsgEditor MsgOnStageHoverEnd)
         ]
-        { onPress = Just (MsgEditor (MsgFocusStage pos))
-        , label =
-            row [ spacing 20, alignRight ]
-                [ text level
-                , text player
-                , text (String.fromInt stage.maxScore)
-                ]
-        }
+        [ elWhen (model.hoveredStage == Just stage && Pivot.lengthA stages > 1) <|
+            button [ alignRight, height fill ]
+                { onPress = Just (MsgEditor (MsgRemoveStage stage))
+                , label = text "❌"
+                }
+        , button [ width fill ]
+            { onPress = Just (MsgEditor (MsgFocusStage pos))
+            , label =
+                row [ spacing 20, alignRight ]
+                    [ text level
+                    , text player
+                    , text (String.fromInt stage.maxScore)
+                    ]
+            }
+        ]
 
 
 statusBar : StatusView -> Element Msg
