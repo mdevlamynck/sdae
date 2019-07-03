@@ -134,6 +134,7 @@ type EditorMsg
     | MsgOnStageHoverStart Stage
     | MsgOnStageHoverEnd
     | MsgFocusStage Int
+    | MsgDuplicateCurrentStage
     | MsgRemoveStage Stage
     | MsgRemoveCurrentStage
 
@@ -452,6 +453,11 @@ updateEditor msg model =
             , Cmd.none
             )
 
+        MsgDuplicateCurrentStage ->
+            ( { model | game = mapStages duplicateCurrentStage model.game }
+            , Cmd.none
+            )
+
         MsgRemoveStage stage ->
             ( { model | game = mapStages (pivotRemoveElement stage) model.game }
             , Cmd.none
@@ -492,31 +498,32 @@ subscriptions model =
         [ Ports.subscriptions
             { invalidCommand = MsgNoOp
             , isPlaying = MsgPlayer << MsgIsPlaying
-            , songLoaded = MsgSong << MsgSongLoaded
             , pos = MsgPos
+            , songLoaded = MsgSong << MsgSongLoaded
             }
         , Keyboard.subscriptions model.mode
-            { mode = MsgSetMode
+            { backward = MsgPlayer MsgBackward
+            , deleteCurrentInput = MsgEditor MsgRemoveCurrentInput
+            , deleteCurrentStage = MsgEditor MsgRemoveCurrentStage
+            , exportGame = MsgGame MsgExportGame
+            , forward = MsgPlayer MsgForward
+            , mode = MsgSetMode
+            , newGame = MsgGame MsgNewGame
+            , nextInput = MsgEditor MsgNextInput
+            , openGame = openGame
             , openSong = openSong
             , playPause = MsgPlayer MsgPlayPause
-            , backward = MsgPlayer MsgBackward
-            , forward = MsgPlayer MsgForward
-            , openGame = openGame
-            , newGame = MsgGame MsgNewGame
-            , exportGame = MsgGame MsgExportGame
-            , deleteCurrentStage = MsgEditor MsgRemoveCurrentStage
-            , toggleHit = MsgEditor << MsgToggleHit
-            , setKind = MsgEditor << MsgSetInputKind
             , previousInput = MsgEditor MsgPreviousInput
-            , nextInput = MsgEditor MsgNextInput
-            , deleteCurrentInput = MsgEditor MsgRemoveCurrentInput
-            , undo = MsgEditor MsgUndo
             , redo = MsgEditor MsgRedo
+            , setKind = MsgEditor << MsgSetInputKind
+            , toggleHit = MsgEditor << MsgToggleHit
+            , undo = MsgEditor MsgUndo
+            , duplicateCurrentStage = MsgEditor MsgDuplicateCurrentStage
             }
         , Ports.cypressSubscriptions
             { invalidCommand = MsgNoOp
-            , loadSong = MsgCypressLoadSong
             , loadGame = MsgCypressLoadGame
+            , loadSong = MsgCypressLoadSong
             }
         ]
 
@@ -620,6 +627,22 @@ pivotRemoveCurrentElement stages =
             Pivot.getC stages
     in
     pivotRemoveElement stage stages
+
+
+duplicateCurrentStage : Pivot Stage -> Pivot Stage
+duplicateCurrentStage stages =
+    let
+        stage =
+            Pivot.getC stages
+
+        newStage =
+            { stage | player = P2 }
+    in
+    if stage.player /= P2 then
+        Pivot.appendGoR newStage stages
+
+    else
+        stages
 
 
 
@@ -1197,6 +1220,10 @@ gamePropertiesView model =
                 , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
                     { onPress = Just (MsgGame MsgUnloadGame)
                     , label = text "g: Unload Game"
+                    }
+                , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                    { onPress = Just (MsgEditor MsgDuplicateCurrentStage)
+                    , label = text "d: Duplicate Stage"
                     }
                 , stageSelectionView model game
                 ]

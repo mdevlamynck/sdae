@@ -5,7 +5,6 @@ import Bytes exposing (..)
 import Bytes.Encode exposing (..)
 import Data exposing (..)
 import EverySet exposing (EverySet)
-import List.Extra as List
 import Pivot
 import TimeArray
 

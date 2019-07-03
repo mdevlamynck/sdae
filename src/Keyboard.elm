@@ -31,6 +31,7 @@ type alias Commands msg =
     , newGame : msg
     , exportGame : msg
     , deleteCurrentStage : msg
+    , duplicateCurrentStage : msg
     }
 
 
@@ -155,6 +156,9 @@ commandDecoder mode commands =
 
                             ( _, "e", None ) ->
                                 succeed <| commands.exportGame
+
+                            ( _, "d", None ) ->
+                                succeed <| commands.duplicateCurrentStage
 
                             ( _, "x", None ) ->
                                 succeed <| commands.deleteCurrentStage
