@@ -93,12 +93,24 @@ type Kind
 emptyGame : Game
 emptyGame =
     { stages =
-        Pivot.singleton
-            { level = Normal
-            , player = P1
-            , maxScore = 0
-            , inputs = TimeArray.empty compareInput
-            }
+        Pivot.fromCons
+            ( Easy, P1 )
+            [ ( Easy, P2 )
+            , ( Normal, P1 )
+            , ( Normal, P2 )
+            , ( Hard, P1 )
+            , ( Hard, P2 )
+            , ( SuperHard, P1 )
+            , ( SuperHard, P2 )
+            ]
+            |> Pivot.mapA
+                (\( l, p ) ->
+                    { level = l
+                    , player = p
+                    , maxScore = 0
+                    , inputs = TimeArray.empty compareInput
+                    }
+                )
     , raw = Nothing
     }
 

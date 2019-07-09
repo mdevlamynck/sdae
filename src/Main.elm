@@ -74,7 +74,6 @@ type alias Editor =
     { game : Game
     , history : History Game
     , hoveredInput : Maybe Input
-    , hoveredStage : Maybe Stage
     }
 
 
@@ -131,12 +130,9 @@ type EditorMsg
     | MsgRedo
     | MsgOnInputHoverStart Input
     | MsgOnInputHoverEnd
-    | MsgOnStageHoverStart Stage
-    | MsgOnStageHoverEnd
     | MsgFocusStage Int
-    | MsgDuplicateCurrentStage
-    | MsgRemoveStage Stage
-    | MsgRemoveCurrentStage
+    | MsgApplyAllStages
+    | MsgApplyOtherPlayer
 
 
 
@@ -167,7 +163,6 @@ initEditor game =
     { game = game
     , history = History.empty
     , hoveredInput = Nothing
-    , hoveredStage = Nothing
     }
 
 
@@ -438,33 +433,18 @@ updateEditor msg model =
             , Cmd.none
             )
 
-        MsgOnStageHoverStart stage ->
-            ( { model | hoveredStage = Just stage }
-            , Cmd.none
-            )
-
-        MsgOnStageHoverEnd ->
-            ( { model | hoveredStage = Nothing }
-            , Cmd.none
-            )
-
         MsgFocusStage pos ->
             ( { model | game = mapStages (Pivot.withRollback (Pivot.goTo pos)) model.game }
             , Cmd.none
             )
 
-        MsgDuplicateCurrentStage ->
-            ( { model | game = mapStages duplicateCurrentStage model.game }
+        MsgApplyAllStages ->
+            ( { model | game = mapStages applyAllStages model.game }
             , Cmd.none
             )
 
-        MsgRemoveStage stage ->
-            ( { model | game = mapStages (pivotRemoveElement stage) model.game }
-            , Cmd.none
-            )
-
-        MsgRemoveCurrentStage ->
-            ( { model | game = mapStages pivotRemoveCurrentElement model.game }
+        MsgApplyOtherPlayer ->
+            ( { model | game = mapStages applyOtherPlayer model.game }
             , Cmd.none
             )
 
@@ -502,9 +482,10 @@ subscriptions model =
             , songLoaded = MsgSong << MsgSongLoaded
             }
         , Keyboard.subscriptions model.mode
-            { backward = MsgPlayer MsgBackward
+            { applyOtherPlayer = MsgEditor MsgApplyOtherPlayer
+            , applyAllStages = MsgEditor MsgApplyAllStages
+            , backward = MsgPlayer MsgBackward
             , deleteCurrentInput = MsgEditor MsgRemoveCurrentInput
-            , deleteCurrentStage = MsgEditor MsgRemoveCurrentStage
             , exportGame = MsgGame MsgExportGame
             , forward = MsgPlayer MsgForward
             , mode = MsgSetMode
@@ -518,7 +499,6 @@ subscriptions model =
             , setKind = MsgEditor << MsgSetInputKind
             , toggleHit = MsgEditor << MsgToggleHit
             , undo = MsgEditor MsgUndo
-            , duplicateCurrentStage = MsgEditor MsgDuplicateCurrentStage
             }
         , Ports.cypressSubscriptions
             { invalidCommand = MsgNoOp
@@ -629,19 +609,44 @@ pivotRemoveCurrentElement stages =
     pivotRemoveElement stage stages
 
 
-duplicateCurrentStage : Pivot Stage -> Pivot Stage
-duplicateCurrentStage stages =
+applyAllStages : Pivot Stage -> Pivot Stage
+applyAllStages stages =
     let
         stage =
             Pivot.getC stages
 
-        newStage =
-            { stage | player = P2 }
+        allStages _ =
+            [ ( Easy, P1 )
+            , ( Easy, P2 )
+            , ( Normal, P1 )
+            , ( Normal, P2 )
+            , ( Hard, P1 )
+            , ( Hard, P2 )
+            , ( SuperHard, P1 )
+            , ( SuperHard, P2 )
+            ]
+                |> List.map (\( l, p ) -> { stage | level = l, player = p })
+                |> Pivot.fromList
     in
-    if stage.player /= P2 then
-        Pivot.appendGoR newStage stages
+    Pivot.withRollback
+        allStages
+        stages
 
-    else
+
+applyOtherPlayer : Pivot Stage -> Pivot Stage
+applyOtherPlayer stages =
+    let
+        stage =
+            Pivot.getC stages
+    in
+    Pivot.mapA
+        (\s ->
+            if s.level == stage.level then
+                { stage | player = s.player }
+
+            else
+                s
+        )
         stages
 
 
@@ -774,7 +779,6 @@ type alias SongView =
 
 type alias GameView =
     { game : FileResource Game
-    , hoveredStage : Maybe Stage
     }
 
 
@@ -849,7 +853,6 @@ view model =
                 }
             , game =
                 { game = game
-                , hoveredStage = editor.hoveredStage
                 }
             , status =
                 { mode = model.mode
@@ -1151,7 +1154,7 @@ hitButton hit input =
 
 propertiesView : SongView -> GameView -> Element Msg
 propertiesView song game =
-    column [ height fill, width (shrink |> minimum 200), centerX, spacing 60, aside ]
+    column [ height fill, width (shrink |> minimum 200), centerX, spacing 30, aside ]
         [ songPropertiesView song
         , gamePropertiesView game
         ]
@@ -1222,8 +1225,12 @@ gamePropertiesView model =
                     , label = text "g: Unload Game"
                     }
                 , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
-                    { onPress = Just (MsgEditor MsgDuplicateCurrentStage)
-                    , label = text "d: Duplicate Stage"
+                    { onPress = Just (MsgEditor MsgApplyAllStages)
+                    , label = text "s: Apply all Stages"
+                    }
+                , button [ centerX, padding 20, Background.color buttonColor, Border.rounded 5 ]
+                    { onPress = Just (MsgEditor MsgApplyOtherPlayer)
+                    , label = text "p: Apply other Player"
                     }
                 , stageSelectionView model game
                 ]
@@ -1283,15 +1290,8 @@ stageSelectionRowView model stages ( pos, stage ) =
         , tag ("stage " ++ String.toLower level ++ " " ++ String.toLower player)
         , checked isChecked
         , attrWhen isChecked (Background.color buttonColor)
-        , onMouseEnter (MsgEditor (MsgOnStageHoverStart stage))
-        , onMouseLeave (MsgEditor MsgOnStageHoverEnd)
         ]
-        [ elWhen (model.hoveredStage == Just stage && Pivot.lengthA stages > 1) <|
-            button [ alignRight, height fill ]
-                { onPress = Just (MsgEditor (MsgRemoveStage stage))
-                , label = text "❌"
-                }
-        , button [ width fill ]
+        [ button [ width fill ]
             { onPress = Just (MsgEditor (MsgFocusStage pos))
             , label =
                 row [ spacing 20, alignRight ]

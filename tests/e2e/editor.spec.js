@@ -257,11 +257,11 @@ context('editor', () => {
         it('when playing the input list scrolls to keep the current input visible', () => {
             cy.loadGame()
 
-            cy.get('#input129').should('not.be.visible')
-            cy.get('#input129').should('be.visible').should('have.prop', 'checked', false)
-            cy.get('#input129').should('be.visible').should('have.prop', 'checked', true)
-            cy.get('#input129').should('be.visible').should('have.prop', 'checked', false)
-            cy.get('#input129').should('not.be.visible')
+            cy.get('#input97').should('not.be.visible')
+            cy.get('#input97').should('be.visible').should('have.prop', 'checked', false)
+            cy.get('#input97').should('be.visible').should('have.prop', 'checked', true)
+            cy.get('#input97').should('be.visible').should('have.prop', 'checked', false)
+            cy.get('#input97').should('not.be.visible')
         })
     })
 
