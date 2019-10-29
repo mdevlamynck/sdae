@@ -11,11 +11,11 @@
     "amg-test": "parcel build -o amgtester.js --target node --log-level 1 amgtester.js && node dist/amgtester.js"
   },
   "devDependencies": {
-    "cypress": "^3.3.1",
-    "elm-format": "^0.8.1",
-    "elm-hot": "^1.0.1",
-    "node-elm-compiler": "^5.0.3",
-    "parcel-bundler": "^1.10.3"
+    "cypress": "^3.5.0",
+    "elm-format": "^0.8.2",
+    "elm-hot": "^1.1.2",
+    "node-elm-compiler": "^5.0.4",
+    "parcel-bundler": "^1.12.4"
   },
   "dependencies": {
     "howler": "^2.1.2"
